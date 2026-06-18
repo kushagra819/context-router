@@ -1,0 +1,28 @@
+# Virtual environment
+venv/
+.venv/
+env/
+
+# API keys and secrets
+.env
+.env.local
+.env.production
+.env.development
+.env.staging
+
+# Python caching
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# Experiment results (exclude large data and baseline results by default)
+results/
+data/
+
+# IDE files
+.vscode/
+.idea/
+.DS_Store
