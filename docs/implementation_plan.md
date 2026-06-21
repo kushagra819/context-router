@@ -1,0 +1,257 @@
+# Context-Aware LLM Routing — Stage 1 Implementation Plan
+
+## 1. Current Project State (Ground Truth from Repo)
+
+### Baseline Status: 12/12 Complete ✅
+
+The audit said 11/12, but **MuSiQue Tier 4 is now complete** (378KB, ~199 problems). All 12 baseline CSVs exist with consistent file sizes (360-390KB).
+
+| Dataset | Tier 1 (Gemma 4B) | Tier 2 (Llama 70B) | Tier 3 (Llama 405B) | Tier 4 (GPT-4.1) |
+|---------|:--:|:--:|:--:|:--:|
+| **GSM8K** | ✅ 629 lines¹ | ✅ 379KB | ✅ 383KB | ✅ 364KB |
+| **HotpotQA** | ✅ 380KB | ✅ 388KB | ✅ 384KB | ✅ 383KB |
+| **MuSiQue** | ✅ 360KB | ✅ 386KB | ✅ 383KB | ✅ 378KB² |
+
+¹ GSM8K T1 has ~28 duplicate rows from a resume restart (problems 0-8 appear twice)  
+² MuSiQue T4 stats JSON shows 199 problems, not 200 — likely 1 problem missing or errored
+
+### Stats JSON Integrity
+
+| File | Reliable? | Issue |
+|------|:---------:|-------|
+| GSM8K T1 stats | ✅ Yes | Full run, no resume — 200 problems |
+| GSM8K T2 stats | ✅ Yes | Full run, no resume — 200 problems |
+| GSM8K T3 stats | ❌ No | Shows 13/14 — last session only |
+| GSM8K T4 stats | ❌ No | Shows 0/0 — all from prior run |
+| HotpotQA T1 stats | ✅ Yes | No resume — F1=76.61% plausible |
+| HotpotQA T2 stats | ❌ No | 🐛 F1(4.18%) < EM(46.32%) — impossible |
+| HotpotQA T3 stats | ❌ No | 🐛 F1(21.76%) < EM(57.0%) — impossible |
+| HotpotQA T4 stats | ❌ No | 🐛 F1(12.74%) < EM(37.5%) — impossible |
+| MuSiQue T1 stats | ✅ Yes | No resume — F1=43.29% plausible |
+| MuSiQue T2 stats | ❌ No | 🐛 F1(5.76%) < EM(55.0%) — impossible |
+| MuSiQue T3 stats | ❌ No | 🐛 F1(18.8%) < EM(47.5%) — impossible |
+| MuSiQue T4 stats | ⚠️ Partial | 199 problems, F1=44.62% — plausible but may be partial |
+
+**Verdict:** 5/12 stats JSONs are reliable. 7/12 need recomputation from CSVs. **No baseline reruns needed** — all CSVs are complete.
+
+### What Exists vs What's Missing
+
+| Component | Status | Action |
+|-----------|--------|--------|
+| Model integrations (4 active) | ✅ Done | Keep |
+| Model integrations (3 unused) | ⚠️ Dead code | Move to `src/models/_unused/` |
+| Agent pipelines (3 datasets) | ✅ Done | Keep |
+| Evaluation metrics | ✅ Done | Keep |
+| Baseline runners (3 scripts) | ✅ Done, bugs in F1 | Fix resume F1 bug |
+| Router module | ❌ Empty | **BUILD THIS** — core contribution |
+| Cache module | ⚠️ Unused | Keep as utility |
+| Config/logging | ✅ Done | Keep |
+| Docs | ❌ Missing | Create full docs-first system |
+| Recomputation script | ❌ Missing | Created at `scripts/recompute_metrics.py` |
+
+---
+
+## 2. The Research Innovation
+
+### What NOT to build
+- A "query difficulty only" router (well-studied, not novel)
+- A bloated multi-strategy framework
+- A massive retrained DistilBERT classifier (too heavy for this scope)
+
+### What TO build: **Confidence-Based Cascading + Stage-Aware Mixed-Tier Routing**
+
+This is a two-layer innovation:
+
+#### Layer 1: Confidence-Based Cascading (Primary)
+- Start at Tier 1 (cheapest)
+- After the verifier agent runs, extract a confidence signal from the verifier's output
+- If confidence < threshold → escalate to next tier and re-run
+- Continue until confident or Tier 4 (ceiling) is reached
+- **Why this is novel for multi-agent systems**: Existing cascading routers work on single-model inference. Ours cascades across a full 3-agent pipeline (Analyzer→Solver→Verifier), using the verifier's judgment as the confidence signal.
+
+#### Layer 2: Stage-Aware Mixed-Tier Routing (Secondary)
+- Different agents use different tiers: e.g., Analyzer→Tier 2, Solver→Tier 3, Verifier→Tier 1
+- The insight: not every agent stage needs the same capability. Decomposition is easier than solving; verification is easier than solving.
+- This creates cost savings without quality loss.
+- **Why this is novel**: Existing routers route entire queries. Ours routes within the agent pipeline stages.
+
+#### Research Story
+> Existing LLM routing approaches dispatch queries to models based on estimated difficulty. 
+> Our system operates *inside* multi-agent workflows, using **workflow-stage-aware signals** — 
+> specifically, verifier confidence and agent-role complexity — to dynamically select model tiers.
+> This achieves a better quality-cost Pareto frontier than uniform-tier baselines, 
+> while requiring no training data beyond the baselines we already collected.
+
+### Why This Works for Your Project
+1. **No additional model runs needed for the core router** — it can be evaluated by re-processing existing CSV data through routing logic
+2. **Baselines become the comparison** — each single-tier baseline is a point on the Pareto frontier
+3. **Ablation is clean** — turn off cascading, turn off mixed-tier, measure impact
+4. **Presentation-ready** — Pareto plot of cost vs. quality with router vs. baselines is compelling
+5. **Defensible** — the professor can ask "why not just use the best model?" and the cost analysis answers it
+
+---
+
+## 3. Decisions Requiring Your Input
+
+> [!IMPORTANT]
+> ### Decision 1: Dead Model Files
+> Three model integrations (`gemini_model.py`, `openrouter_model.py`, `sambanova_model.py`) are never used. Options:
+> - **A) Move to `src/models/_unused/`** — clean but preserve (recommended)
+> - **B) Delete entirely** — cleanest
+> - **C) Keep as-is** — no change
+>
+> These could theoretically serve as fallback providers if GitHub Models goes down, but they don't participate in any experiment.
+
+> [!IMPORTANT]
+> ### Decision 2: GPT-4.1 File Naming (RESOLVED ✅)
+> The file `gpt5_model.py` with class `GPT5Model` has been renamed to `gpt41_model.py` / `GPT41Model` for accuracy.
+
+> [!IMPORTANT]
+> ### Decision 3: MuSiQue T4 — 199 vs 200 Problems  
+> The stats JSON shows 199 problems. The CSV has 599 lines (header + 199×3 = 598 data lines... which is 599 lines total, but problem IDs run 0-198 = 199 problems).
+> - **A) Accept 199 as complete** — statistically equivalent to 200, no rerun needed (recommended)
+> - **B) Resume for 1 missing problem** — minimal effort but requires home laptop
+
+> [!WARNING]
+> ### Decision 4: Utility Scripts in Root
+> 7 diagnostic scripts (`check_all_keys.py`, `check_github_models.py`, `check_limits.py`, `test_models.py`, `test_gpt5.py`, `measure_overhead.py`, `debug_results.py`) clutter the root. Should I:
+> - **A) Move to `scripts/` directory** (recommended)
+> - **B) Leave in root**
+
+---
+
+## 4. Stage 1 Execution Plan (This Session)
+
+### 4.1 Create docs-first continuity system
+
+Create the following docs (all in `docs/`):
+
+#### [NEW] [00_PROJECT_STATE.md](file:///c:/Users/Kumud/Desktop/Research/context-router/docs/00_PROJECT_STATE.md)
+Current stage, completed items, blocked items, next action, resume instructions
+
+#### [NEW] [01_RESEARCH_GAP.md](file:///c:/Users/Kumud/Desktop/Research/context-router/docs/01_RESEARCH_GAP.md)
+Literature positioning, what existing routers do, what ours does differently
+
+#### [NEW] [02_DATASET_SPECS.md](file:///c:/Users/Kumud/Desktop/Research/context-router/docs/02_DATASET_SPECS.md)
+GSM8K, HotpotQA, MuSiQue — specs, sample sizes, evaluation protocols
+
+#### [NEW] [03_MODEL_MATRIX.md](file:///c:/Users/Kumud/Desktop/Research/context-router/docs/03_MODEL_MATRIX.md)
+4-tier model hierarchy, providers, pricing, rate limits
+
+#### [NEW] [04_BASELINE_PROTOCOL.md](file:///c:/Users/Kumud/Desktop/Research/context-router/docs/04_BASELINE_PROTOCOL.md)
+How baselines were run, resume logic, known bugs
+
+#### [NEW] [05_ROUTER_SPEC.md](file:///c:/Users/Kumud/Desktop/Research/context-router/docs/05_ROUTER_SPEC.md)
+Router design: confidence-based cascading + stage-aware mixed-tier routing
+
+#### [NEW] [06_EVALUATION_PROTOCOL.md](file:///c:/Users/Kumud/Desktop/Research/context-router/docs/06_EVALUATION_PROTOCOL.md)
+How router experiments will be evaluated, metrics, statistical tests
+
+#### [NEW] [07_RISK_REGISTER.md](file:///c:/Users/Kumud/Desktop/Research/context-router/docs/07_RISK_REGISTER.md)
+Known risks, mitigations, contingencies
+
+#### [NEW] [08_RESULTS_LEDGER.md](file:///c:/Users/Kumud/Desktop/Research/context-router/docs/08_RESULTS_LEDGER.md)
+Canonical results table with CSVs as truth source — recomputed from CSVs
+
+#### [NEW] [09_PRESENTATION_OUTLINE.md](file:///c:/Users/Kumud/Desktop/Research/context-router/docs/09_PRESENTATION_OUTLINE.md)
+Final presentation flow for professor/dean discussion
+
+#### [NEW] [10_SESSION_HANDOFF.md](file:///c:/Users/Kumud/Desktop/Research/context-router/docs/10_SESSION_HANDOFF.md)
+What was done this session, what remains, where to continue
+
+#### [NEW] [11_BASELINE_VALIDATION.md](file:///c:/Users/Kumud/Desktop/Research/context-router/docs/11_BASELINE_VALIDATION.md)
+CSV completeness report, recomputed metrics, JSON mismatches
+
+### 4.2 Run recomputation script
+- Execute `scripts/recompute_metrics.py` (at home laptop if shell issues persist)
+- Record recomputed metrics in `docs/08_RESULTS_LEDGER.md` and `docs/11_BASELINE_VALIDATION.md`
+
+### 4.3 Cleanup
+- Move dead model files to `src/models/_unused/` (pending your decision)
+- Move diagnostic scripts to `scripts/` (pending your decision)  
+- Rename `gpt5_model.py` → `gpt41_model.py` (Completed ✅)
+- Remove `check_csvs.py` from root (Completed ✅ - Marked deprecated)
+- Clean unused imports from `requirements.txt` (`torch`, `transformers`, `tiktoken`) (Completed ✅)
+
+### 4.4 Exit Conditions for Stage 1
+- [ ] All 12 docs exist in `docs/`
+- [ ] `docs/00_PROJECT_STATE.md` shows current stage = "Stage 1 complete, Stage 2 ready"
+- [ ] `docs/11_BASELINE_VALIDATION.md` has complete CSV validation
+- [ ] `docs/08_RESULTS_LEDGER.md` has recomputed metrics
+- [ ] `docs/10_SESSION_HANDOFF.md` summarizes this session
+- [ ] Dead code identified and isolated
+- [ ] Recomputation script works
+- [ ] A new session (office or home) can open the repo and know exactly where things stand
+
+---
+
+## 5. Full Stage Roadmap
+
+| Stage | Work | Where | Estimated Effort |
+|-------|------|-------|:---:|
+| **1** | Cleanup, docs, validation, truth-locking | Office (this session) | 1 session |
+| **2** | Router design finalization, spec doc | Office | 1 session |
+| **3** | Router implementation (cascading + mixed-tier) | Office (code) + Home (test) | 2-3 sessions |
+| **4** | Evaluation, ablation, result tables | Home (runs) + Office (analysis) | 2 sessions |
+| **5** | Visualizations, presentation | Office | 1-2 sessions |
+| **6** | Polish, README, publication readiness | Office | 1 session |
+
+### Office vs Home Split
+
+| Task | Office Claude | Home Laptop |
+|------|:---:|:---:|
+| Doc creation/updates | ✅ | |
+| Router design & spec | ✅ | |
+| Router code generation | ✅ | |
+| Recomputation script run | | ✅ |
+| Baseline validation | | ✅ |
+| Router experiment runs | | ✅ |
+| Evaluation analysis | ✅ | |
+| Visualization code | ✅ | |
+| Presentation drafting | ✅ | |
+
+---
+
+## 6. Files to Create/Modify
+
+### New Files
+| Path | Purpose |
+|------|---------|
+| `docs/00_PROJECT_STATE.md` - `docs/11_BASELINE_VALIDATION.md` | 12 continuity docs |
+| `scripts/recompute_metrics.py` | Already created |
+
+### Files to Modify
+| Path | Change |
+|------|--------|
+| `src/models/gpt5_model.py` | Renamed to `gpt41_model.py` (Completed ✅) |
+| `requirements.txt` | Remove `torch`, `transformers`, `tiktoken` (Completed ✅) |
+| `README.md` | Update after Stage 1 |
+
+### Files to Move (pending approval)
+| From | To |
+|------|------|
+| `src/models/gemini_model.py` | `src/models/_unused/` |
+| `src/models/openrouter_model.py` | `src/models/_unused/` |
+| `src/models/sambanova_model.py` | `src/models/_unused/` |
+| `check_all_keys.py` | `scripts/` |
+| `check_github_models.py` | `scripts/` |
+| `check_limits.py` | `scripts/` |
+| `test_models.py` | `scripts/` |
+| `test_gpt5.py` | `scripts/` |
+| `measure_overhead.py` | `scripts/` |
+| `debug_results.py` | `scripts/` |
+| `check_csvs.py` | Delete (temporary) |
+
+---
+
+## 7. Verification Plan
+
+### Automated Tests
+- Run `python scripts/recompute_metrics.py` and verify all 12 CSVs produce valid metrics
+- Verify recomputed EM matches CSV `correct` column counts
+- Verify no CSV has fewer than 199 complete problems
+
+### Manual Verification
+- Confirm docs are navigable and any new session can determine project state
+- Confirm `docs/00_PROJECT_STATE.md` is accurate and actionable
+- Confirm `docs/10_SESSION_HANDOFF.md` enables seamless continuation

@@ -11,7 +11,7 @@ import os
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from src.models import OllamaModel, GroqModel, GitHubModel, GPT5Model, OpenRouterModel, SambaNovaModel
+from src.models import OllamaModel, GroqModel, GitHubModel, GPT41Model, OpenRouterModel, SambaNovaModel
 
 
 TEST_PROMPT = (
@@ -91,7 +91,7 @@ def main():
     # Tier 4: GitHub Models (GPT-4.1 — oracle/ceiling)
     results["Tier 4 (GPT-4.1)"] = test_tier(
         "Tier 4 — GPT-4.1 via GitHub Models",
-        GPT5Model,
+        GPT41Model,
         require_api_key=True,
     )
 

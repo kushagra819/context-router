@@ -2,7 +2,7 @@
 import time
 import os
 from dotenv import load_dotenv
-from src.models import OllamaModel, GroqModel, GitHubModel, GPT5Model
+from src.models import OllamaModel, GroqModel, GitHubModel, GPT41Model
 
 load_dotenv()
 
@@ -34,7 +34,7 @@ def main():
         m1 = OllamaModel()
         m2 = GroqModel()
         m3 = GitHubModel() # Llama 3.1 405B
-        m4 = GPT5Model()   # GPT-4.1
+        m4 = GPT41Model()   # GPT-4.1
         print("  ✅ All model clients initialized successfully.")
     except Exception as e:
         print(f"  ❌ Error initializing models: {e}")
