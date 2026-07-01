@@ -1,5 +1,15 @@
 # Context-Aware Multi-Agent LLM Router — Full Project Audit
 
+> [!CAUTION]
+> **HISTORICAL / STALE (kept for reference).** This automated audit (June 21) predates the
+> router implementation and the baseline re-validation. Several claims are now out of date:
+> the router module is **implemented** (`src/router/`, 11 routers + factory), and the
+> baseline status here ("~92% complete") is wrong. For current ground truth use:
+> **[BASELINE_VALIDATION_REPORT.md](BASELINE_VALIDATION_REPORT.md)** (baselines),
+> **[00_PROJECT_STATE.md](00_PROJECT_STATE.md)** (status), and
+> **[ROUTER_FINAL_SPEC.md](ROUTER_FINAL_SPEC.md)** (router). The *issue lists* and
+> *innovation ideas* below remain a useful historical record.
+
 > **Audit Date:** June 21, 2026  
 > **Project:** `context-router` ([GitHub: kushagra819/context-router](https://github.com/kushagra819/context-router))  
 > **Auditor:** Automated Deep Audit

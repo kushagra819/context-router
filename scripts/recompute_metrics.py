@@ -1,363 +1,269 @@
 """
-Recompute all baseline metrics from CSV truth-source files.
+recompute_metrics.py  --  authoritative, OFFLINE-FIRST metric recomputation
+===========================================================================
+Re-derives the per-row ``predicted`` / ``correct`` / ``f1`` columns of the
+baseline CSVs from the immutable ``response_text`` using the SINGLE canonical
+answer extractor (``src/evaluation/metrics``), then regenerates the
+``*_stats.json`` files. CSVs remain the source of truth (ADR-001): we only
+recompute *derived* columns from the raw model output, never the output itself.
 
-This script:
-1. Reads each baseline CSV
-2. Checks for completeness (200 unique problems, 3 agents each)
-3. Handles duplicates (from resume runs)
-4. Recomputes EM, F1, cost, latency, token counts
-5. Compares against stored stats JSON
-6. Outputs a validation report
+Why this exists
+---------------
+The legacy extractor returned the bare Markdown marker ``**`` as the "answer"
+when a frontier model wrote ``**Final Answer:** <span>``. This silently
+mis-scored Tier-4 (GPT-4.1) on the multi-hop sets -- the documented "Tier-4 EM
+anomaly" -- which corrupts oracle labels, QRR-vs-T4, and every downstream
+comparison. The fixed extractor (metrics._strip_markdown + last-marker logic) is
+applied IDENTICALLY to every tier, so this corrects a harness bug without
+favouring any model (verified: terse tiers are unchanged; only T4 moves).
 
-Usage:
-    python scripts/recompute_metrics.py
+Ground-truth source
+-------------------
+1. Embedded ``ground_truth`` column (new-schema CSVs) -> fully OFFLINE. Default.
+2. ``--use-hf`` re-loads the HF dataset to backfill legacy CSVs that lack the
+   ``ground_truth`` column (hotpotqa T2/T3). API-free (no LLM calls), needs the
+   ``datasets`` package + network. Expected to be ~a no-op for those terse tiers.
+
+Safety
+------
+* The original CSV is backed up to ``<name>.prev.csv`` (only if no backup exists).
+* GSM8K is skipped (numeric EM is already correct; no Markdown / no embedded GT).
+* A machine-readable provenance report is written to
+  ``results/recompute_provenance.json`` (old EM/F1 -> new EM/F1 per cell).
+
+Usage
+-----
+  python scripts/recompute_metrics.py                 # offline, embedded GT only
+  python scripts/recompute_metrics.py --use-hf        # also backfill legacy cells
+  python scripts/recompute_metrics.py --dry-run       # report, write nothing
 """
 
-import os
-import sys
+from __future__ import annotations
+
+import argparse
 import csv
 import json
-import re
-import string
-from collections import Counter
+import sys
 from pathlib import Path
 
-BASELINES_DIR = Path(__file__).parent.parent / "results" / "baselines"
-EXPECTED_PROBLEMS = 200
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+csv.field_size_limit(min(sys.maxsize, 2_147_483_647))
 
-# ── Metric functions (copied from src/evaluation/metrics.py for standalone use) ──
+from src.evaluation.metrics import (  # noqa: E402
+    extract_hotpotqa_answer, hotpotqa_check_correct, hotpotqa_compute_f1,
+    compute_experiment_stats,
+)
+from src.evaluation.csv_io import read_rows  # noqa: E402
+from src.utils.config import RESULTS_DIR, MODEL_CONFIG  # noqa: E402
 
-def normalize_answer(s: str) -> str:
-    if not s:
-        return ""
-    def remove_articles(text): return re.sub(r'\b(a|an|the)\b', ' ', text)
-    def white_space_fix(text): return ' '.join(text.split())
-    def remove_punc(text): return ''.join(ch for ch in text if ch not in set(string.punctuation))
-    def lower(text): return text.lower()
-    return white_space_fix(remove_articles(remove_punc(lower(s))))
-
-
-def compute_f1(predicted: str, ground_truth: str) -> float:
-    if not predicted or not ground_truth:
-        return 0.0
-    pred_tokens = normalize_answer(predicted).split()
-    gold_tokens = normalize_answer(ground_truth).split()
-    if len(pred_tokens) == 0 or len(gold_tokens) == 0:
-        return 1.0 if pred_tokens == gold_tokens else 0.0
-    common = Counter(pred_tokens) & Counter(gold_tokens)
-    num_same = sum(common.values())
-    if num_same == 0:
-        return 0.0
-    precision = 1.0 * num_same / len(pred_tokens)
-    recall = 1.0 * num_same / len(gold_tokens)
-    return (2 * precision * recall) / (precision + recall)
+DATASETS = ["hotpotqa", "musique"]   # GSM8K intentionally excluded (numeric EM)
+TIERS = [1, 2, 3, 4]
+HF_SPECS = {
+    "hotpotqa": ("hotpotqa/hotpot_qa", "distractor", "validation"),
+    "musique": ("bdsaglam/musique", "answerable", "validation"),
+}
 
 
-def extract_final_answer(text: str) -> str:
-    """Extract 'Final Answer: ...' from verifier output."""
-    if not text:
-        return ""
-    match = re.search(r"[Ff]inal\s*[Aa]nswer\s*[:\-]\s*(.*)$", text, re.MULTILINE)
-    if match:
-        return match.group(1).strip()
-    match = re.search(r"answer\s+is\s*[:\-]?\s*(.*)$", text, re.IGNORECASE | re.MULTILINE)
-    if match:
-        return match.group(1).strip()
-    lines = [line.strip() for line in text.split("\n") if line.strip()]
-    if lines:
-        return lines[-1].strip(".")
-    return text.strip()
+def _dataset_of(name: str) -> str | None:
+    return next((d for d in DATASETS if d in name), None)
 
 
-def extract_gsm8k_answer(text: str):
-    if not text:
+def _tier_of(name: str) -> int | None:
+    return next((t for t in TIERS if f"tier{t}" in name), None)
+
+
+def _is_truncated(text: str) -> bool:
+    # Legacy logger stored response_text[:500]; such rows cannot be re-extracted reliably.
+    return len(text or "") == 500
+
+
+def recompute_csv(path: Path, hf_answers: dict[int, str] | None, dry_run: bool) -> dict | None:
+    """Recompute one CSV in place (with backup). Returns a provenance dict or None."""
+    rows = read_rows(path)
+    if not rows:
         return None
-    match = re.search(r"[Ff]inal\s*[Aa]nswer\s*[:\-]\s*\$?\s*([\-\d,\.]+)", text)
-    if match:
-        return _clean_number(match.group(1))
-    match = re.search(r"####\s*([\-\d,\.]+)", text)
-    if match:
-        return _clean_number(match.group(1))
-    match = re.search(r"answer\s+is\s*[:\-]?\s*\$?\s*([\-\d,\.]+)", text, re.IGNORECASE)
-    if match:
-        return _clean_number(match.group(1))
-    match = re.search(r"=\s*\$?\s*([\-\d,\.]+)\s*$", text, re.MULTILINE)
-    if match:
-        return _clean_number(match.group(1))
-    numbers = re.findall(r"[\-\d,\.]+", text)
-    if numbers:
-        return _clean_number(numbers[-1])
-    return None
+    columns = list(rows[0].keys())
+    has_gt = "ground_truth" in columns
+    if not has_gt and hf_answers is None:
+        return {"file": path.name, "status": "SKIPPED (no embedded ground_truth; pass --use-hf)",
+                "changed": 0}
 
+    # Ensure derived columns exist in the schema we will write back.
+    for col in ("predicted", "correct", "f1", "ground_truth"):
+        if col not in columns:
+            columns.append(col)
 
-def _clean_number(num_str: str) -> str:
-    cleaned = num_str.replace(",", "").strip(".")
-    try:
-        num = float(cleaned)
-        if num == int(num):
-            return str(int(num))
-        return str(num)
-    except ValueError:
-        return cleaned
+    changed = 0
+    old_correct = new_correct = 0
+    old_f1_sum = new_f1_sum = 0.0
+    n_scored = 0
+    truncated = 0
+    for r in rows:
+        if (r.get("agent_role") or "").strip() != "verifier":
+            continue
+        try:
+            pid = int(float(r.get("problem_id", "")))
+        except (ValueError, TypeError):
+            continue
+        resp = r.get("response_text") or ""
+        if "[ERROR]" in resp:
+            continue
+        gt = (r.get("ground_truth") or "").strip()
+        if not gt and hf_answers is not None:
+            gt = (hf_answers.get(pid) or "").strip()
+            r["ground_truth"] = gt
+        if not gt:
+            continue
+        if _is_truncated(resp):
+            truncated += 1
+            continue  # cannot trust a 500-char-truncated span
 
+        n_scored += 1
+        # old (logged) values for provenance
+        try:
+            old_em_flag = 1 if str(r.get("correct", "")).strip().lower() == "true" else 0
+        except Exception:
+            old_em_flag = 0
+        try:
+            old_f1_val = float(r.get("f1")) if r.get("f1") not in (None, "") else (1.0 if old_em_flag else 0.0)
+        except (ValueError, TypeError):
+            old_f1_val = float(old_em_flag)
 
-def gsm8k_check_correct(predicted, ground_truth):
-    if predicted is None or ground_truth is None:
-        return False
-    try:
-        return abs(float(predicted) - float(ground_truth)) < 1e-6
-    except ValueError:
-        return predicted.strip() == ground_truth.strip()
+        pred = extract_hotpotqa_answer(resp)
+        is_correct = hotpotqa_check_correct(pred, gt)
+        f1 = hotpotqa_compute_f1(pred, gt)
 
+        old_correct += old_em_flag
+        new_correct += 1 if is_correct else 0
+        old_f1_sum += old_f1_val
+        new_f1_sum += f1
+        if (str(r.get("predicted", "")) != pred or
+                (str(r.get("correct", "")).strip().lower() == "true") != is_correct):
+            changed += 1
+        r["predicted"] = pred
+        r["correct"] = str(bool(is_correct))
+        r["f1"] = f"{f1:.6f}"
 
-# ── CSV Processing ──
-
-def process_csv(csv_path: Path) -> dict:
-    """Process a single baseline CSV and compute metrics."""
-    fname = csv_path.name
-    dataset = None
-    tier = None
-    
-    # Parse filename
-    if "gsm8k" in fname:
-        dataset = "gsm8k"
-    elif "hotpotqa" in fname:
-        dataset = "hotpotqa"
-    elif "musique" in fname:
-        dataset = "musique"
-    
-    match = re.search(r"tier(\d)", fname)
-    if match:
-        tier = int(match.group(1))
-    
-    with open(csv_path, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-    
-    # Group by problem_id, keeping only the LAST occurrence of each (problem_id, agent_role) pair
-    # This handles duplicates from resume runs
-    problem_data = {}
-    for row in rows:
-        pid = int(row["problem_id"])
-        role = row["agent_role"]
-        key = (pid, role)
-        problem_data[key] = row  # Last one wins
-    
-    # Reconstruct per-problem records
-    unique_pids = sorted(set(pid for (pid, _) in problem_data.keys()))
-    
-    results = {
-        "file": fname,
-        "dataset": dataset,
-        "tier": tier,
-        "total_rows_in_csv": len(rows),
-        "unique_problems": len(unique_pids),
-        "problem_id_range": f"{min(unique_pids)}-{max(unique_pids)}" if unique_pids else "N/A",
-        "duplicate_rows": len(rows) - len(problem_data),
+    prov = {
+        "file": path.name,
+        "n_scored": n_scored,
+        "truncated_skipped": truncated,
+        "rows_changed": changed,
+        "em_old": round(100 * old_correct / n_scored, 2) if n_scored else None,
+        "em_new": round(100 * new_correct / n_scored, 2) if n_scored else None,
+        "f1_old": round(100 * old_f1_sum / n_scored, 2) if n_scored else None,
+        "f1_new": round(100 * new_f1_sum / n_scored, 2) if n_scored else None,
     }
-    
-    # Check completeness
-    expected_roles = {"analyzer", "solver", "verifier"}
-    complete_problems = 0
-    incomplete_problems = []
-    
-    for pid in unique_pids:
-        roles_present = {role for (p, role) in problem_data.keys() if p == pid}
-        if roles_present >= expected_roles:
-            complete_problems += 1
-        else:
-            incomplete_problems.append((pid, roles_present))
-    
-    results["complete_problems"] = complete_problems
-    results["incomplete_problems"] = len(incomplete_problems)
-    if incomplete_problems:
-        results["incomplete_details"] = [(pid, list(roles)) for pid, roles in incomplete_problems[:5]]
-    
-    # Compute metrics
-    correct_count = 0
-    total_f1 = 0.0
-    total_cost = 0.0
-    total_tokens = 0
-    total_latency = 0.0
-    error_count = 0
-    
-    for pid in unique_pids:
-        verifier_key = (pid, "verifier")
-        if verifier_key not in problem_data:
-            error_count += 1
+    if n_scored == 0:
+        prov["status"] = "SKIPPED (no scorable verifier rows; likely truncated/legacy)"
+        return prov
+
+    if dry_run:
+        prov["status"] = "DRY-RUN (no files written)"
+        return prov
+
+    # Back up original (once) then rewrite with the (possibly extended) schema.
+    backup = path.with_suffix(".prev.csv")
+    if not backup.exists():
+        backup.write_bytes(path.read_bytes())
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=columns, extrasaction="ignore")
+        w.writeheader()
+        for r in rows:
+            w.writerow({c: r.get(c, "") for c in columns})
+
+    # Regenerate stats JSON (offline) from the rewritten rows.
+    _write_stats(path, rows)
+    prov["status"] = "REWRITTEN"
+    prov["backup"] = backup.name
+    return prov
+
+
+def _write_stats(path: Path, rows: list[dict]):
+    """Regenerate <name>_stats.json from per-problem aggregation of the rewritten rows."""
+    name = path.stem
+    tier = _tier_of(name)
+    by_key = {}
+    for r in rows:
+        try:
+            pid = int(float(r.get("problem_id", "")))
+        except (ValueError, TypeError):
             continue
-        
-        verifier_row = problem_data[verifier_key]
-        response = str(verifier_row.get("response_text", ""))
-        
-        # Check for errors
-        if "[ERROR]" in response:
-            error_count += 1
+        by_key[(pid, (r.get("agent_role") or "").strip())] = r
+    pids = sorted({p for (p, _) in by_key})
+    results = []
+    for pid in pids:
+        v = by_key.get((pid, "verifier"))
+        if v is None or "[ERROR]" in str(v.get("response_text", "")):
             continue
-        
-        # Correctness (from CSV 'correct' column)
-        is_correct = str(verifier_row.get("correct", "")).lower() == "true"
-        if is_correct:
-            correct_count += 1
-        
-        # Cost, tokens, latency (sum across all 3 agents for this problem)
-        for role in expected_roles:
-            key = (pid, role)
-            if key in problem_data:
-                row = problem_data[key]
-                try:
-                    total_cost += float(row.get("cost_usd", 0))
-                    total_tokens += int(row.get("input_tokens", 0)) + int(row.get("output_tokens", 0))
-                    total_latency += float(row.get("latency_s", 0))
-                except (ValueError, TypeError):
-                    pass
-    
-    valid_problems = complete_problems - error_count
-    results["valid_problems"] = valid_problems
-    results["error_problems"] = error_count
-    results["correct"] = correct_count
-    results["em_accuracy"] = round(correct_count / valid_problems * 100, 2) if valid_problems > 0 else 0
-    results["total_cost_usd"] = round(total_cost, 6)
-    results["avg_cost_per_problem"] = round(total_cost / valid_problems, 6) if valid_problems > 0 else 0
-    results["total_tokens"] = total_tokens
-    results["avg_tokens_per_problem"] = round(total_tokens / valid_problems, 1) if valid_problems > 0 else 0
-    results["total_latency_s"] = round(total_latency, 2)
-    results["avg_latency_per_problem"] = round(total_latency / valid_problems, 2) if valid_problems > 0 else 0
-    
-    # Note: F1 cannot be recomputed without ground truth answers from the dataset
-    # We can only report EM from the 'correct' column in the CSV
-    
-    return results
-
-
-def load_stats_json(csv_path: Path) -> dict | None:
-    """Load the corresponding stats JSON for comparison."""
-    stats_path = csv_path.with_suffix("").with_suffix("") 
-    # Actually: same name but _stats.json
-    stats_name = csv_path.stem + "_stats.json"
-    stats_path = csv_path.parent / stats_name
-    if stats_path.exists():
-        with open(stats_path, "r") as f:
-            return json.load(f)
-    return None
-
-
-def compare_metrics(recomputed: dict, stored: dict) -> list:
-    """Compare recomputed vs stored metrics, return list of mismatches."""
-    mismatches = []
-    
-    comparisons = [
-        ("correct", "correct", "Correct count"),
-        ("em_accuracy", "accuracy", "EM/Accuracy %"),
-        ("total_cost_usd", "total_cost_usd", "Total cost"),
-        ("total_tokens", "total_tokens", "Total tokens"),
-    ]
-    
-    for recomp_key, stored_key, label in comparisons:
-        rv = recomputed.get(recomp_key)
-        sv = stored.get(stored_key)
-        if rv is not None and sv is not None:
-            if isinstance(rv, float) and isinstance(sv, float):
-                if abs(rv - sv) > 0.01:
-                    mismatches.append(f"{label}: recomputed={rv}, stored={sv}")
-            elif rv != sv:
-                mismatches.append(f"{label}: recomputed={rv}, stored={sv}")
-    
-    # Check for F1 < EM bug
-    stored_f1 = stored.get("avg_f1")
-    stored_em = stored.get("accuracy")
-    if stored_f1 is not None and stored_em is not None:
-        if stored_f1 < stored_em:
-            mismatches.append(f"🐛 BUG: Stored F1 ({stored_f1}%) < EM ({stored_em}%) — mathematically impossible")
-    
-    return mismatches
+        if not {"analyzer", "solver", "verifier"}.issubset({rr for (pp, rr) in by_key if pp == pid}):
+            continue
+        rec = {"problem_id": pid,
+               "correct": str(v.get("correct", "")).strip().lower() == "true",
+               "total_cost": 0.0, "total_input_tokens": 0,
+               "total_output_tokens": 0, "total_latency": 0.0}
+        fv = v.get("f1")
+        if fv not in (None, ""):
+            try:
+                rec["f1"] = float(fv)
+            except (ValueError, TypeError):
+                pass
+        for role in ("analyzer", "solver", "verifier"):
+            rr = by_key.get((pid, role))
+            if rr:
+                rec["total_cost"] += float(rr.get("cost_usd", 0) or 0)
+                rec["total_input_tokens"] += int(float(rr.get("input_tokens", 0) or 0))
+                rec["total_output_tokens"] += int(float(rr.get("output_tokens", 0) or 0))
+                rec["total_latency"] += float(rr.get("latency_s", 0) or 0)
+        results.append(rec)
+    stats = compute_experiment_stats(results)
+    stats.update({"tier": tier, "model": MODEL_CONFIG[tier]["name"] if tier else "?",
+                  "experiment_id": name, "n_problems": len(results),
+                  "note": "Recomputed by scripts/recompute_metrics.py (canonical Markdown-robust extractor)."})
+    (path.parent / f"{name}_stats.json").write_text(json.dumps(stats, indent=2), encoding="utf-8")
 
 
 def main():
-    print("=" * 70)
-    print("  BASELINE CSV VALIDATION & METRIC RECOMPUTATION")
-    print("=" * 70)
-    print()
-    
-    csv_files = sorted(BASELINES_DIR.glob("*.csv"))
-    
-    all_results = []
-    all_mismatches = {}
-    
-    for csv_path in csv_files:
-        print(f"Processing: {csv_path.name}")
-        print("-" * 50)
-        
-        result = process_csv(csv_path)
-        all_results.append(result)
-        
-        # Print summary
-        status = "✅" if result["complete_problems"] >= EXPECTED_PROBLEMS else "⚠️"
-        print(f"  {status} Unique problems: {result['unique_problems']}")
-        print(f"  Complete: {result['complete_problems']}, Errors: {result['error_problems']}")
-        if result["duplicate_rows"] > 0:
-            print(f"  ⚠️ Duplicate rows (from resume): {result['duplicate_rows']}")
-        print(f"  EM Accuracy: {result['em_accuracy']}% ({result['correct']}/{result['valid_problems']})")
-        print(f"  Total cost: ${result['total_cost_usd']:.4f}")
-        print(f"  Total tokens: {result['total_tokens']:,}")
-        print(f"  Avg latency: {result['avg_latency_per_problem']:.1f}s")
-        
-        # Compare with stored stats
-        stored = load_stats_json(csv_path)
-        if stored:
-            mismatches = compare_metrics(result, stored)
-            if mismatches:
-                all_mismatches[csv_path.name] = mismatches
-                print(f"  ❌ MISMATCHES with stored JSON:")
-                for m in mismatches:
-                    print(f"     - {m}")
-            else:
-                print(f"  ✅ Matches stored JSON")
-        else:
-            print(f"  ⚠️ No stats JSON found")
-        
-        print()
-    
-    # Summary
-    print("=" * 70)
-    print("  SUMMARY")
-    print("=" * 70)
-    
-    complete_count = sum(1 for r in all_results if r["complete_problems"] >= EXPECTED_PROBLEMS)
-    print(f"\n  Complete baselines: {complete_count}/{len(all_results)}")
-    
-    if all_mismatches:
-        print(f"\n  Files with JSON mismatches: {len(all_mismatches)}")
-        for fname, ms in all_mismatches.items():
-            print(f"    {fname}:")
-            for m in ms:
-                print(f"      - {m}")
-    else:
-        print(f"\n  ✅ All stored JSONs match recomputed metrics")
-    
-    # Check for reruns needed
-    reruns_needed = [r for r in all_results if r["complete_problems"] < EXPECTED_PROBLEMS]
-    if reruns_needed:
-        print(f"\n  ⚠️ RERUNS NEEDED:")
-        for r in reruns_needed:
-            print(f"    {r['file']}: only {r['complete_problems']}/{EXPECTED_PROBLEMS} complete")
-    else:
-        print(f"\n  ✅ No reruns needed — all baselines have {EXPECTED_PROBLEMS}+ complete problems")
-    
-    # Output as JSON for programmatic use
-    output_path = BASELINES_DIR.parent / "baseline_validation.json"
-    output = {
-        "validation_timestamp": __import__("datetime").datetime.now().isoformat(),
-        "results": all_results,
-        "mismatches": {k: v for k, v in all_mismatches.items()},
-        "reruns_needed": [r["file"] for r in reruns_needed] if reruns_needed else [],
-        "all_complete": len(reruns_needed) == 0,
-    }
-    with open(output_path, "w") as f:
-        json.dump(output, f, indent=2)
-    print(f"\n  Full report saved to: {output_path}")
-    
-    print()
+    ap = argparse.ArgumentParser(description="Offline-first recompute of baseline EM/F1 with the canonical extractor.")
+    ap.add_argument("--use-hf", action="store_true", help="Backfill legacy CSVs lacking ground_truth via the HF dataset.")
+    ap.add_argument("--dry-run", action="store_true", help="Report changes without writing.")
+    args = ap.parse_args()
+
+    hf_cache: dict[str, dict[int, str]] = {}
+    if args.use_hf:
+        from datasets import load_dataset
+        for ds, (hid, cfg, split) in HF_SPECS.items():
+            print(f"Loading {hid} [{cfg}/{split}] for ground-truth backfill ...")
+            data = list(load_dataset(hid, cfg, split=split))
+            hf_cache[ds] = {i: str(item["answer"]) for i, item in enumerate(data)}
+
+    provenance = {"dry_run": args.dry_run, "cells": []}
+    base = RESULTS_DIR / "baselines"
+    print("=" * 90)
+    print(f"{'cell':<34}{'N':>4}{'EM old->new':>16}{'F1 old->new':>16}  status")
+    print("-" * 90)
+    for csv_path in sorted(base.glob("*.csv")):
+        if csv_path.name.endswith(".prev.csv"):
+            continue
+        ds = _dataset_of(csv_path.stem)
+        if ds is None:
+            continue  # gsm8k or unknown -> skip
+        hf_answers = hf_cache.get(ds) if args.use_hf else None
+        prov = recompute_csv(csv_path, hf_answers, args.dry_run)
+        if prov is None:
+            continue
+        provenance["cells"].append(prov)
+        em = (f"{prov.get('em_old')}->{prov.get('em_new')}" if prov.get("em_old") is not None else "-")
+        f1 = (f"{prov.get('f1_old')}->{prov.get('f1_new')}" if prov.get("f1_old") is not None else "-")
+        print(f"{csv_path.stem:<34}{prov.get('n_scored', 0):>4}{em:>16}{f1:>16}  {prov.get('status', '')}")
+
+    if not args.dry_run:
+        out = RESULTS_DIR / "recompute_provenance.json"
+        out.write_text(json.dumps(provenance, indent=2), encoding="utf-8")
+        print("-" * 90)
+        print(f"Provenance -> {out}")
+        print("Next: python scripts/validate_baselines.py && python aggregate_results.py")
 
 
 if __name__ == "__main__":

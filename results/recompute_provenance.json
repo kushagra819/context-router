@@ -1,0 +1,101 @@
+{
+  "dry_run": false,
+  "cells": [
+    {
+      "file": "hotpotqa_baseline_tier1.csv",
+      "n_scored": 200,
+      "truncated_skipped": 0,
+      "rows_changed": 0,
+      "em_old": 60.5,
+      "em_new": 60.5,
+      "f1_old": 75.74,
+      "f1_new": 75.74,
+      "status": "REWRITTEN",
+      "backup": "hotpotqa_baseline_tier1.prev.csv"
+    },
+    {
+      "file": "hotpotqa_baseline_tier2.csv",
+      "n_scored": 200,
+      "truncated_skipped": 0,
+      "rows_changed": 0,
+      "em_old": 79.5,
+      "em_new": 79.5,
+      "f1_old": 87.08,
+      "f1_new": 87.08,
+      "status": "REWRITTEN",
+      "backup": "hotpotqa_baseline_tier2.prev.csv"
+    },
+    {
+      "file": "hotpotqa_baseline_tier3.csv",
+      "n_scored": 200,
+      "truncated_skipped": 0,
+      "rows_changed": 0,
+      "em_old": 63.5,
+      "em_new": 63.5,
+      "f1_old": 78.66,
+      "f1_new": 78.66,
+      "status": "REWRITTEN",
+      "backup": "hotpotqa_baseline_tier3.prev.csv"
+    },
+    {
+      "file": "hotpotqa_baseline_tier4.csv",
+      "n_scored": 200,
+      "truncated_skipped": 0,
+      "rows_changed": 0,
+      "em_old": 41.5,
+      "em_new": 41.5,
+      "f1_old": 62.87,
+      "f1_new": 62.87,
+      "status": "REWRITTEN",
+      "backup": "hotpotqa_baseline_tier4.prev.csv"
+    },
+    {
+      "file": "musique_baseline_tier1.csv",
+      "n_scored": 200,
+      "truncated_skipped": 0,
+      "rows_changed": 0,
+      "em_old": 31.0,
+      "em_new": 31.0,
+      "f1_old": 42.64,
+      "f1_new": 42.64,
+      "status": "REWRITTEN",
+      "backup": "musique_baseline_tier1.prev.csv"
+    },
+    {
+      "file": "musique_baseline_tier2.csv",
+      "n_scored": 200,
+      "truncated_skipped": 0,
+      "rows_changed": 0,
+      "em_old": 43.0,
+      "em_new": 43.0,
+      "f1_old": 57.69,
+      "f1_new": 57.69,
+      "status": "REWRITTEN",
+      "backup": "musique_baseline_tier2.prev.csv"
+    },
+    {
+      "file": "musique_baseline_tier3.csv",
+      "n_scored": 200,
+      "truncated_skipped": 0,
+      "rows_changed": 0,
+      "em_old": 51.0,
+      "em_new": 51.0,
+      "f1_old": 64.47,
+      "f1_new": 64.47,
+      "status": "REWRITTEN",
+      "backup": "musique_baseline_tier3.prev.csv"
+    },
+    {
+      "file": "musique_baseline_tier4.csv",
+      "n_scored": 201,
+      "truncated_skipped": 0,
+      "rows_changed": 0,
+      "em_old": 30.85,
+      "em_new": 30.85,
+      "f1_old": 49.65,
+      "f1_new": 49.65,
+      "status": "REWRITTEN",
+      "backup": "musique_baseline_tier4.prev.csv"
+    }
+  ]
+}

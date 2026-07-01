@@ -1,0 +1,17 @@
+{
+  "total_problems": 200,
+  "correct": 121,
+  "accuracy": 60.5,
+  "total_cost_usd": 0.059137,
+  "avg_cost_per_problem": 0.000296,
+  "total_tokens": 1509337,
+  "avg_tokens_per_problem": 7546.7,
+  "total_latency_s": 14048.18,
+  "avg_latency_per_problem": 70.24,
+  "avg_f1": 75.74,
+  "tier": 1,
+  "model": "Gemma 4 E4B",
+  "experiment_id": "hotpotqa_baseline_tier1",
+  "n_problems": 200,
+  "note": "Recomputed by scripts/recompute_metrics.py (canonical Markdown-robust extractor)."
+}

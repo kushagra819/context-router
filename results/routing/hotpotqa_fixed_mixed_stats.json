@@ -1,0 +1,15 @@
+{
+  "experiment_id": "hotpotqa_fixed_mixed",
+  "dataset": "hotpotqa",
+  "router": "fixed_mixed",
+  "router_type": "fixed_mixed",
+  "mock": false,
+  "session_processed": 0,
+  "session_correct": 0,
+  "session_em": 0.0,
+  "session_f1": 0.0,
+  "resumed_from_previous": 4,
+  "stopped_early": true,
+  "generated": "2026-07-01T01:53:22.228549",
+  "note": "Session-only stats. Use scripts/validate_baselines.py / aggregate_results.py for authoritative full-CSV metrics."
+}

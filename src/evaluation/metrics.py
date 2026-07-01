@@ -84,32 +84,62 @@ def gsm8k_check_correct(predicted: str | None, ground_truth: str | None) -> bool
         return predicted.strip() == ground_truth.strip()
 
 
+def _strip_markdown(s: str) -> str:
+    """Strip Markdown bold/italic/code/heading/bullet decoration from a candidate
+    answer span. Frontier models (e.g. GPT-4.1) wrap the final answer in bold
+    (``**Final Answer:**``); the legacy extractor captured the bare ``**`` marker
+    as the "answer", which is the root cause of the documented Tier-4 EM anomaly
+    (see docs/BASELINE_VALIDATION_REPORT.md). This normalisation is applied
+    identically to every tier, so it corrects a harness bug without favouring any
+    model. NOTE: normalize_answer() strips all punctuation downstream, so this only
+    needs to remove decoration that would otherwise leave the span empty/garbled."""
+    s = s.strip()
+    s = re.sub(r"^[\s>*_`#\-]+", "", s)   # leading bullets / heading / bold markers
+    s = re.sub(r"[*_`]+", "", s)            # inline emphasis / code markers
+    return s.strip().strip(":").strip()
+
+
 def extract_hotpotqa_answer(text: str) -> str:
     """
-    Extract the final text answer from model output for HotpotQA.
-    Look for "Final Answer: [text]" or similar, otherwise fallback to cleaning up the last line or returning the whole text.
+    Extract the final short-span answer from a (possibly verbose, possibly
+    Markdown-formatted) model response for HotpotQA / MuSiQue.
+
+    Strategy (robust to the verifier restating the answer and to Markdown bold):
+      1. Take the span after the LAST "Final Answer" marker (the verifier is
+         instructed to end with it; the last occurrence is the committed answer),
+         tolerating a Markdown separator and an answer that spills to the next line.
+      2. Else the span after "answer is ...".
+      3. Else the last non-empty, decoration-stripped line.
     """
     if not text:
         return ""
-        
-    # Try 1: Look for "Final Answer: X" pattern
-    match = re.search(r"[Ff]inal\s*[Aa]nswer\s*[:\-]\s*(.*)$", text, re.MULTILINE)
-    if match:
-        return match.group(1).strip()
-        
-    # Try 2: Look for "answer is X" pattern
-    match = re.search(r"answer\s+is\s*[:\-]?\s*(.*)$", text, re.IGNORECASE | re.MULTILINE)
-    if match:
-        return match.group(1).strip()
 
-    # Fallback to the last non-empty line
-    lines = [line.strip() for line in text.split("\n") if line.strip()]
-    if lines:
-        last_line = lines[-1]
-        # Remove trailing dot if any
-        return last_line.strip(".")
-        
-    return text.strip()
+    t = text.replace("\r", "")
+
+    # 1) LAST "Final Answer" marker, Markdown-tolerant.
+    matches = list(re.finditer(r"final\s*answer", t, re.IGNORECASE))
+    if matches:
+        tail = t[matches[-1].end():]
+        tail = re.sub(r"^[\s:\-*_`]+", "", tail)  # skip the separator after the marker
+        for line in tail.split("\n"):
+            cand = _strip_markdown(line)
+            if cand:
+                return cand.strip(".")
+
+    # 2) "answer is X"
+    match = re.search(r"answer\s+is\s*[:\-]?\s*(.+)", t, re.IGNORECASE)
+    if match:
+        cand = _strip_markdown(match.group(1).split("\n")[0])
+        if cand:
+            return cand.strip(".")
+
+    # 3) Fallback: last non-empty, decoration-stripped line.
+    for line in reversed(t.split("\n")):
+        cand = _strip_markdown(line)
+        if cand:
+            return cand.strip(".")
+
+    return t.strip()
 
 
 def normalize_answer(s: str) -> str:
@@ -162,6 +192,18 @@ def hotpotqa_compute_f1(predicted: str | None, ground_truth: str | None) -> floa
     f1 = (2 * precision * recall) / (precision + recall)
     return f1
 
+
+
+# ──────────────────────────────────────────
+# MuSiQue SCORER (reuses the HotpotQA short-answer EM/F1 implementation)
+# ──────────────────────────────────────────
+# MuSiQue answers are short entities/spans scored identically to HotpotQA
+# (normalized Exact Match + token-level F1). These thin aliases exist so call
+# sites read clearly and a future MuSiQue-specific scorer can diverge cleanly.
+
+extract_musique_answer = extract_hotpotqa_answer
+musique_check_correct = hotpotqa_check_correct
+musique_compute_f1 = hotpotqa_compute_f1
 
 
 # ──────────────────────────────────────────

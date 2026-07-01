@@ -1,0 +1,156 @@
+{
+  "oracle": {
+    "router": "oracle",
+    "dataset": "gsm8k",
+    "n": 200,
+    "mode": "simulation",
+    "em": 98.5,
+    "correct": 197,
+    "total_cost_usd": 0.048505,
+    "cost_per_task": 0.000243,
+    "avg_latency_s": 95.8,
+    "routing_accuracy": 100.0,
+    "over_provision_rate": 0.0,
+    "under_provision_rate": 0.0,
+    "escalation_rate": 0.0,
+    "token_efficiency": 322.46,
+    "tier_distribution": {
+      "t1": 192,
+      "t2": 5,
+      "t3": 3,
+      "t4": 0
+    }
+  },
+  "fixed_t1": {
+    "router": "fixed_t1",
+    "dataset": "gsm8k",
+    "n": 200,
+    "mode": "simulation",
+    "em": 94.5,
+    "correct": 189,
+    "total_cost_usd": 0.031443,
+    "cost_per_task": 0.000157,
+    "avg_latency_s": 98.29,
+    "routing_accuracy": 95.94,
+    "over_provision_rate": 0.0,
+    "under_provision_rate": 4.06,
+    "escalation_rate": 0.0,
+    "token_efficiency": 301.27,
+    "tier_distribution": {
+      "t1": 200,
+      "t2": 0,
+      "t3": 0,
+      "t4": 0
+    }
+  },
+  "fixed_t2": {
+    "router": "fixed_t2",
+    "dataset": "gsm8k",
+    "n": 200,
+    "mode": "simulation",
+    "em": 96.0,
+    "correct": 192,
+    "total_cost_usd": 0.218554,
+    "cost_per_task": 0.001093,
+    "avg_latency_s": 3.28,
+    "routing_accuracy": 2.54,
+    "over_provision_rate": 95.94,
+    "under_provision_rate": 2.54,
+    "escalation_rate": 0.0,
+    "token_efficiency": 594.86,
+    "tier_distribution": {
+      "t1": 0,
+      "t2": 200,
+      "t3": 0,
+      "t4": 0
+    }
+  },
+  "fixed_t3": {
+    "router": "fixed_t3",
+    "dataset": "gsm8k",
+    "n": 200,
+    "mode": "simulation",
+    "em": 97.0,
+    "correct": 194,
+    "total_cost_usd": 0.822031,
+    "cost_per_task": 0.00411,
+    "avg_latency_s": 54.28,
+    "routing_accuracy": 1.52,
+    "over_provision_rate": 98.48,
+    "under_provision_rate": 1.52,
+    "escalation_rate": 0.0,
+    "token_efficiency": 626.6,
+    "tier_distribution": {
+      "t1": 0,
+      "t2": 0,
+      "t3": 200,
+      "t4": 0
+    }
+  },
+  "fixed_t4": {
+    "router": "fixed_t4",
+    "dataset": "gsm8k",
+    "n": 200,
+    "mode": "simulation",
+    "em": 97.0,
+    "correct": 194,
+    "total_cost_usd": 1.182422,
+    "cost_per_task": 0.005912,
+    "avg_latency_s": 12.13,
+    "routing_accuracy": 0.0,
+    "over_provision_rate": 100.0,
+    "under_provision_rate": 1.52,
+    "escalation_rate": 0.0,
+    "token_efficiency": 734.16,
+    "tier_distribution": {
+      "t1": 0,
+      "t2": 0,
+      "t3": 0,
+      "t4": 200
+    }
+  },
+  "fixed_mixed": {
+    "router": "fixed_mixed",
+    "dataset": "gsm8k",
+    "n": 200,
+    "mode": "simulation",
+    "em": 94.5,
+    "correct": 189,
+    "total_cost_usd": 0.482664,
+    "cost_per_task": 0.002413,
+    "avg_latency_s": 37.9,
+    "routing_accuracy": 95.94,
+    "over_provision_rate": 0.0,
+    "under_provision_rate": 4.06,
+    "escalation_rate": 0.0,
+    "token_efficiency": 492.35,
+    "tier_distribution": {
+      "t1": 200,
+      "t2": 0,
+      "t3": 0,
+      "t4": 0
+    }
+  },
+  "random": {
+    "router": "random",
+    "dataset": "gsm8k",
+    "n": 200,
+    "mode": "simulation",
+    "em": 97.0,
+    "correct": 194,
+    "total_cost_usd": 0.555693,
+    "cost_per_task": 0.002778,
+    "avg_latency_s": 35.0,
+    "routing_accuracy": 29.95,
+    "over_provision_rate": 69.54,
+    "under_provision_rate": 1.52,
+    "escalation_rate": 0.0,
+    "token_efficiency": 511.81,
+    "tier_distribution": {
+      "t1": 58,
+      "t2": 49,
+      "t3": 51,
+      "t4": 42
+    }
+  }
+}

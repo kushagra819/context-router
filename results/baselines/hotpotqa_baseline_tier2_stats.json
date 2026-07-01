@@ -1,0 +1,17 @@
+{
+  "total_problems": 200,
+  "correct": 159,
+  "accuracy": 79.5,
+  "total_cost_usd": 0.772128,
+  "avg_cost_per_problem": 0.003861,
+  "total_tokens": 1247299,
+  "avg_tokens_per_problem": 6236.5,
+  "total_latency_s": 1828.97,
+  "avg_latency_per_problem": 9.14,
+  "avg_f1": 87.08,
+  "tier": 2,
+  "model": "Llama 3.3 70B",
+  "experiment_id": "hotpotqa_baseline_tier2",
+  "n_problems": 200,
+  "note": "Recomputed by scripts/recompute_metrics.py (canonical Markdown-robust extractor)."
+}

@@ -18,9 +18,17 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 
-# Experiment results (exclude large data and baseline results by default)
-results/
+# Auto-downloaded datasets (large; fetched by `datasets` on demand)
 data/
+
+# Transient / throwaway experiment output
+results/_mock/
+*.prev.csv
+results/routing/learned_router*.pkl
+
+# NOTE: results/baselines/, results/baselines_backup/, results/routing/,
+# results/routing_sim/, results/figures/, and results/*.{json,csv,md} ARE tracked
+# on purpose — they are the truth source + reproducible artifacts.
 
 # IDE files
 .vscode/

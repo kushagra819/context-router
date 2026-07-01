@@ -24,6 +24,13 @@ class ExperimentLogger:
         "latency_s",
         "cost_usd",
         "correct",
+        "f1",
+        "ground_truth",
+        "predicted",
+        "confidence",
+        "confidence_source",
+        "mean_logprob",
+        "routing_reason",
         "escalated_from",
         "response_text",
     ]
@@ -59,8 +66,20 @@ class ExperimentLogger:
         correct: bool | None = None,
         escalated_from: int | None = None,
         response_text: str = "",
+        f1: float | None = None,
+        ground_truth: str | None = None,
+        predicted: str | None = None,
+        confidence: float | None = None,
+        routing_reason: str | None = None,
+        confidence_source: str | None = None,
+        mean_logprob: float | None = None,
     ):
-        """Log a single LLM call."""
+        """Log a single LLM call.
+
+        ``ground_truth``/``predicted``/``f1`` are problem-level fields repeated on
+        each of the problem's agent rows; storing them makes every metric (incl.
+        F1) recomputable from the CSV alone, with no dataset reload required.
+        """
         row = {
             "timestamp": datetime.now().isoformat(),
             "experiment_id": self.experiment_id,
@@ -75,9 +94,16 @@ class ExperimentLogger:
             "latency_s": round(latency_s, 3),
             "cost_usd": round(cost_usd, 6),
             "correct": correct,
+            "f1": round(f1, 4) if isinstance(f1, (int, float)) else f1,
+            "ground_truth": ground_truth,
+            "predicted": predicted,
+            "confidence": round(confidence, 3) if isinstance(confidence, (int, float)) else confidence,
+            "confidence_source": confidence_source,
+            "mean_logprob": round(mean_logprob, 4) if isinstance(mean_logprob, (int, float)) else mean_logprob,
+            "routing_reason": (routing_reason or "").replace("\n", " "),
             "escalated_from": escalated_from,
-            # Truncate response for CSV storage (keep first 500 chars)
-            "response_text": response_text[:500].replace("\n", " "),
+            # Save the full response in the CSV (only replacing newlines to preserve CSV format)
+            "response_text": response_text.replace("\n", " "),
         }
 
         with open(self.filepath, "a", newline="", encoding="utf-8") as f:

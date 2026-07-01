@@ -1,10 +1,13 @@
-"""Diagnostic script to measure model-switching overhead and latency in the workspace."""
-import time
-import os
-from dotenv import load_dotenv
-from src.models import OllamaModel, GroqModel, GitHubModel, GPT41Model
+"""Diagnostic: measure model-switching overhead and per-tier latency (LIVE).
 
-load_dotenv()
+Relevant to the paper's latency/throughput discussion. ASCII-only output.
+"""
+import sys
+import time
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from src.models import get_model
 
 # Prompt for testing
 PROMPT = "Explain gravity in 5 words."
@@ -16,11 +19,11 @@ def measure_call(model, name: str):
         response = model.generate(PROMPT)
         latency = time.perf_counter() - start
         tokens = response.input_tokens + response.output_tokens
-        print(f"    ✅ Success: {latency:.2f}s ({tokens} tokens, output: '{response.text.strip()}')")
+        print(f"    OK: {latency:.2f}s ({tokens} tokens, output: '{response.text.strip()[:60]}')")
         return latency
     except Exception as e:
         latency = time.perf_counter() - start
-        print(f"    ❌ Failed: {e} ({latency:.2f}s)")
+        print(f"    FAILED: {e} ({latency:.2f}s)")
         return None
 
 def main():
@@ -31,13 +34,13 @@ def main():
     # 1. Instantiate models
     print("\n[1] Initializing model clients...")
     try:
-        m1 = OllamaModel()
-        m2 = GroqModel()
-        m3 = GitHubModel() # Llama 3.1 405B
-        m4 = GPT41Model()   # GPT-4.1
-        print("  ✅ All model clients initialized successfully.")
+        m1 = get_model(1)  # Gemma 4B (Ollama)
+        m2 = get_model(2)  # Llama 3.3 70B (Groq)
+        m3 = get_model(3)  # Llama 3.1 405B (GitHub)
+        m4 = get_model(4)  # GPT-4.1 (GitHub)
+        print("  OK: All model clients initialized.")
     except Exception as e:
-        print(f"  ❌ Error initializing models: {e}")
+        print(f"  ERROR initializing models: {e}")
         return
 
     # 2. Test Cold-Start vs Warm-Start for Local Ollama (Gemma 4B)
@@ -49,7 +52,7 @@ def main():
     
     if cold_lat and warm_lat:
         diff = cold_lat - warm_lat
-        print(f"  📊 Local Load/Cold-start overhead: {diff:.2f}s")
+        print(f"  [stats]Local Load/Cold-start overhead: {diff:.2f}s")
     
     # 3. Test Cloud APIs (Groq, GitHub Models)
     print("\n[3] Testing Cloud APIs Connection/Network Latency...")
@@ -70,7 +73,7 @@ def main():
     measure_call(m2, "Groq (Agent 2)")
     measure_call(m2, "Groq (Agent 3)")
     total_static = time.perf_counter() - start_static
-    print(f"  📊 Mode A (Static) Total Time: {total_static:.2f}s")
+    print(f"  [stats]Mode A (Static) Total Time: {total_static:.2f}s")
 
     # Mode B: Routed
     print("\n  --- Running Mode B: Routed (Ollama -> Groq -> GPT-4.1) ---")
@@ -79,7 +82,7 @@ def main():
     measure_call(m2, "Groq (Agent 2)")
     measure_call(m4, "GPT-4.1 (Agent 3)")
     total_routed = time.perf_counter() - start_routed
-    print(f"  📊 Mode B (Routed) Total Time: {total_routed:.2f}s")
+    print(f"  [stats]Mode B (Routed) Total Time: {total_routed:.2f}s")
 
     print("\n" + "=" * 60)
     print("  DIAGNOSTIC COMPLETE")

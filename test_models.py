@@ -1,124 +1,70 @@
 """
-Test script to verify all 3 model tiers are working.
-Run this after setup to confirm everything is connected.
+Connectivity test for the 4 experiment tiers (LIVE — makes one API call each).
 
-Usage: python test_models.py
+Verifies each tier model can be constructed and answers a trivial prompt. Run this
+after setting up .env / Ollama on the home machine. For an OFFLINE check that the
+whole pipeline works without any API/keys, run `python tests/test_offline.py`.
+
+Usage:
+    python test_models.py            # test all 4 tiers
+    python test_models.py --tier 2   # test one tier
 """
 
+import argparse
 import sys
-import os
+from pathlib import Path
 
-# Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from src.models import OllamaModel, GroqModel, GitHubModel, GPT41Model, OpenRouterModel, SambaNovaModel
-
+from src.models import get_model
+from src.utils.config import MODEL_CONFIG
 
 TEST_PROMPT = (
     "A store sells apples at $2 each. If you buy 5 or more, you get 20% off. "
-    "How much do 7 apples cost? Show your calculation."
+    "How much do 7 apples cost? End with 'Final Answer: <number>'."
 )
 
 
-def test_tier(name: str, model_cls, require_api_key: bool = False):
-    """Test a single model tier."""
-    print(f"\n{'─'*60}")
-    print(f"Testing {name}...")
-    print(f"{'─'*60}")
-
+def test_tier(tier: int) -> bool | None:
+    name = MODEL_CONFIG[tier]["name"]
+    print(f"\n[tier {tier}] {name}")
     try:
-        model = model_cls()
-        print(f"  Model:    {model.model_name}")
-        print(f"  Tier:     {model.tier}")
-        print(f"  Pricing:  ${model.cost_per_1m_input}/1M in, ${model.cost_per_1m_output}/1M out")
-        print(f"  Sending test prompt...")
-
-        response = model.generate(TEST_PROMPT)
-
-        print(f"  Latency:  {response.latency:.2f}s")
-        print(f"  Tokens:   {response.input_tokens} in + {response.output_tokens} out")
-        print(f"  Cost:     ${response.cost_usd:.6f}")
-        print(f"  Output:   {response.text[:200]}...")
-
-        # ── Strict validation ──────────────────────────────────
-        if "[ERROR]" in response.text:
-            print(f"  ❌ FAILED: Response contains an error message.")
+        model = get_model(tier)
+        resp = model.generate(prompt=TEST_PROMPT, system="Show your calculation, be concise.")
+        if "[ERROR]" in resp.text or resp.output_tokens == 0:
+            print(f"  -> FAILED | {resp.text[:160].strip()!r}")
             return False
-        if response.output_tokens == 0:
-            print(f"  ❌ FAILED: Model returned 0 output tokens.")
-            return False
-
-        print(f"  ✅ Passed!")
+        print(f"  -> OK | {resp.input_tokens} in / {resp.output_tokens} out | "
+              f"{resp.latency:.2f}s | ${resp.cost_usd:.6f}")
+        print(f"     {resp.text[:160].strip()!r}")
         return True
-
     except ValueError as e:
-        if require_api_key:
-            print(f"  ⚠️  Skipped (no API key): {e}")
-            return None
-        raise
+        print(f"  -> SKIPPED (no API key / config): {e}")
+        return None
     except Exception as e:
-        print(f"  ❌ FAILED: {e}")
+        print(f"  -> FAILED to construct/call: {e}")
         return False
 
 
 def main():
-    print("=" * 60)
-    print("  Context-Aware Router — Model Tier Testing")
-    print("=" * 60)
+    ap = argparse.ArgumentParser(description="Live connectivity test for the 4 tiers.")
+    ap.add_argument("--tier", type=int, choices=[1, 2, 3, 4], default=None)
+    args = ap.parse_args()
 
-    results = {}
+    print("=" * 56)
+    print("  Context-Aware Router — Tier connectivity test (LIVE)")
+    print("=" * 56)
+    tiers = [args.tier] if args.tier else [1, 2, 3, 4]
+    results = {t: test_tier(t) for t in tiers}
 
-    # Tier 1: Ollama (local)
-    results["Tier 1 (Ollama/Gemma 4B)"] = test_tier(
-        "Tier 1 — Local Gemma 4 E4B via Ollama",
-        OllamaModel,
-    )
-
-    # Tier 2: Groq (free API)
-    results["Tier 2 (Groq/Llama 70B)"] = test_tier(
-        "Tier 2 — Groq Llama 3.3 70B",
-        GroqModel,
-        require_api_key=True,
-    )
-
-    # Tier 3: GitHub Models (free tier Llama 3.1 405B)
-    results["Tier 3 (Llama 3.1 405B)"] = test_tier(
-        "Tier 3 — Llama 3.1 405B via GitHub Models",
-        GitHubModel,
-        require_api_key=True,
-    )
-
-    # Tier 4: GitHub Models (GPT-4.1 — oracle/ceiling)
-    results["Tier 4 (GPT-4.1)"] = test_tier(
-        "Tier 4 — GPT-4.1 via GitHub Models",
-        GPT41Model,
-        require_api_key=True,
-    )
-
-    # Summary
-    print(f"\n{'='*60}")
-    print("  RESULTS SUMMARY")
-    print(f"{'='*60}")
-    for name, status in results.items():
-        if status is True:
-            icon = "✅"
-        elif status is None:
-            icon = "⚠️  (no API key — set up .env)"
-        else:
-            icon = "❌"
-        print(f"  {icon}  {name}")
-
-    all_ok = all(v is True for v in results.values() if v is not None)
-    if all_ok:
-        print(f"\n  🎉 All available tiers working! Ready for experiments.")
-    else:
-        print(f"\n  ⚙️  Fix the issues above, then re-run this script.")
-
-    print(f"\n  Next steps:")
-    print(f"  1. If missing API keys → copy .env.example to .env and fill in keys")
-    print(f"  2. If Ollama failed → make sure Ollama is running: 'ollama serve'")
-    print(f"  3. If model not found → pull it: 'ollama pull gemma4:e4b'")
-    print(f"{'='*60}\n")
+    print("\n" + "=" * 56)
+    for t, ok in results.items():
+        label = "OK" if ok is True else ("SKIPPED" if ok is None else "FAILED")
+        print(f"  Tier {t}: {label}")
+    print("=" * 56)
+    print("  Tip: Ollama not running? 'ollama serve'.  Missing keys? copy .env.example -> .env")
+    failed = [t for t, ok in results.items() if ok is False]
+    sys.exit(1 if failed else 0)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,17 @@
+{
+  "total_problems": 200,
+  "correct": 62,
+  "accuracy": 31.0,
+  "total_cost_usd": 4.565746,
+  "avg_cost_per_problem": 0.022829,
+  "total_tokens": 1739639,
+  "avg_tokens_per_problem": 8698.2,
+  "total_latency_s": 5598.62,
+  "avg_latency_per_problem": 27.99,
+  "avg_f1": 49.7,
+  "tier": 4,
+  "model": "GPT-4.1",
+  "experiment_id": "musique_baseline_tier4",
+  "n_problems": 200,
+  "note": "Recomputed by scripts/recompute_metrics.py (canonical Markdown-robust extractor)."
+}

@@ -1,0 +1,17 @@
+{
+  "total_problems": 200,
+  "correct": 127,
+  "accuracy": 63.5,
+  "total_cost_usd": 0.851264,
+  "avg_cost_per_problem": 0.004256,
+  "total_tokens": 1296911,
+  "avg_tokens_per_problem": 6484.6,
+  "total_latency_s": 10505.86,
+  "avg_latency_per_problem": 52.53,
+  "avg_f1": 78.66,
+  "tier": 3,
+  "model": "GPT-OSS 120B",
+  "experiment_id": "hotpotqa_baseline_tier3",
+  "n_problems": 200,
+  "note": "Recomputed by scripts/recompute_metrics.py (canonical Markdown-robust extractor)."
+}

@@ -1,0 +1,17 @@
+{
+  "total_problems": 200,
+  "correct": 110,
+  "accuracy": 55.0,
+  "total_cost_usd": 1.064755,
+  "avg_cost_per_problem": 0.005324,
+  "total_tokens": 1747571,
+  "avg_tokens_per_problem": 8737.9,
+  "total_latency_s": 3482.95,
+  "avg_latency_per_problem": 17.41,
+  "avg_f1": 55.0,
+  "note_f1": "F1 calculated from CSV is a conservative lower bound because verifier responses are truncated in the CSV.",
+  "tier": 2,
+  "model": "Llama 3.3 70B",
+  "experiment_id": "musique_baseline_tier2",
+  "note": "Recomputed from CSV of size 600 rows. Found 200 unique problems."
+}

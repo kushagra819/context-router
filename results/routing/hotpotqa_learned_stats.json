@@ -1,0 +1,15 @@
+{
+  "experiment_id": "hotpotqa_learned",
+  "dataset": "hotpotqa",
+  "router": "learned",
+  "router_type": "learned",
+  "mock": false,
+  "session_processed": 36,
+  "session_correct": 25,
+  "session_em": 69.44,
+  "session_f1": 79.06,
+  "resumed_from_previous": 66,
+  "stopped_early": true,
+  "generated": "2026-07-01T07:46:11.892335",
+  "note": "Session-only stats. Use scripts/validate_baselines.py / aggregate_results.py for authoritative full-CSV metrics."
+}

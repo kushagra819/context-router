@@ -1,0 +1,17 @@
+{
+  "total_problems": 200,
+  "correct": 86,
+  "accuracy": 43.0,
+  "total_cost_usd": 1.071724,
+  "avg_cost_per_problem": 0.005359,
+  "total_tokens": 1757866,
+  "avg_tokens_per_problem": 8789.3,
+  "total_latency_s": 4108.34,
+  "avg_latency_per_problem": 20.54,
+  "avg_f1": 57.69,
+  "tier": 2,
+  "model": "Llama 3.3 70B",
+  "experiment_id": "musique_baseline_tier2",
+  "n_problems": 200,
+  "note": "Recomputed by scripts/recompute_metrics.py (canonical Markdown-robust extractor)."
+}

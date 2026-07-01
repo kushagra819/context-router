@@ -1,152 +1,37 @@
-"""Tier 3: Llama 3.1 405B via GitHub Models API (free with any GitHub account)."""
+"""GitHub Models backend (OpenAI-compatible). Thin config over OpenAICompatibleModel.
 
-import os
-import time
-import itertools
-from openai import OpenAI
-from src.models.base import BaseMultiKeyModel, ModelResponse
+No longer the default Tier-3 backend (Llama-3.1-405B has been sunset; Tier 3 is now
+GPT-OSS 120B via Groq/OpenRouter -- see src/models/tier3_model.py). This wrapper
+is retained as an optional GitHub-Models backend and as a Tier-4 GPT-4.1 FALLBACK.
+"""
+
+from src.models.openai_compatible import OpenAICompatibleModel
 from src.utils.config import GITHUB_TOKENS
 
+GITHUB_BASE_URL = "https://models.github.ai/inference"
+# A browser-like UA + headers reduce GitHub Models' anti-bot 403s on some networks.
+GITHUB_HEADERS = {
+    "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                   "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"),
+    "Accept": "application/json",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Cache-Control": "no-cache",
+}
 
-class GitHubModel(BaseMultiKeyModel):
-    """
-    Tier 3 — Cloud frontier model.
-    Runs Meta-Llama-3.1-405B-Instruct via GitHub Models API (OpenAI-compatible endpoint).
-    Free with any GitHub account (~50 req/day per token for high-tier models).
-    
-    Supports up to 15 GitHub PAT tokens for rotation.
-    Auto-detects and skips exhausted tokens (UserByModelByDay limits).
-    Published pricing (Meta): $2.66/1M input, $2.66/1M output.
-    """
 
-    def __init__(
-        self,
-        model_id: str = "Meta-Llama-3.1-405B-Instruct",
-        temperature: float = 0.1,
-        max_tokens: int = 2048,
-        tokens: list[str] | None = None,
-        min_delay: float | None = None,
-    ):
-        self._model_id = model_id
-        self._temperature = temperature
-        self._max_tokens = max_tokens
-        
+class GitHubModel(OpenAICompatibleModel):
+    """Generic GitHub Models wrapper (defaults to Llama-3.1-405B for legacy/repro use)."""
+
+    def __init__(self, model_id: str = "Meta-Llama-3.1-405B-Instruct", tier: int = 3,
+                 price_in: float = 2.66, price_out: float = 2.66,
+                 tokens: list[str] | None = None, min_delay: float | None = None,
+                 temperature: float = 0.1, max_tokens: int = 2048):
         keys = list(tokens or GITHUB_TOKENS)
-        num_tokens = len(keys)
-        delay = min_delay if min_delay is not None else max(8.0, 60.0 / (num_tokens * 10))
-        
-        print(f"    GitHub Models: {num_tokens} token(s), {delay:.1f}s delay between calls")
-        
-        super().__init__("GitHub Models", keys, delay)
-        self._init_client()
-
-    def _init_client(self):
-        self._client = OpenAI(
-            base_url="https://models.github.ai/inference",
-            api_key=self._current_key,
-            timeout=15.0,
+        delay = min_delay if min_delay is not None else max(8.0, 60.0 / (max(len(keys), 1) * 10))
+        print(f"    GitHub Models ({model_id}): {len(keys)} token(s), {delay:.1f}s delay")
+        super().__init__(
+            provider_name="GitHub Models", base_url=GITHUB_BASE_URL, model_id=model_id,
+            tier=tier, price_in=price_in, price_out=price_out, keys=keys, min_delay=delay,
+            default_headers=GITHUB_HEADERS, timeout=30.0, rotate_every=3,
+            temperature=temperature, max_tokens=max_tokens, model_name_prefix="GitHub",
         )
-
-    def generate(self, prompt: str, system: str = "") -> ModelResponse:
-        messages = []
-        if system:
-            messages.append({"role": "system", "content": system})
-        messages.append({"role": "user", "content": prompt})
-
-        live_keys = self._get_live_keys()
-        max_attempts = len(live_keys) + 2 if live_keys else 1
-        start = time.perf_counter()
-
-        for attempt in range(max_attempts):
-            if self._current_key in self._dead_keys:
-                try:
-                    self._rotate_key()
-                except RuntimeError as re:
-                    raise re
-                except Exception as ex:
-                    print(f"    ❌ {ex}")
-                    break
-
-            try:
-                self._throttle()
-                response = self._client.chat.completions.create(
-                    model=self._model_id,
-                    messages=messages,
-                    temperature=self._temperature,
-                    max_tokens=self._max_tokens,
-                )
-                latency = time.perf_counter() - start
-
-                text = response.choices[0].message.content or ""
-                input_tokens = response.usage.prompt_tokens if response.usage else 0
-                output_tokens = response.usage.completion_tokens if response.usage else 0
-
-                self._call_count += 1
-                if self._call_count % 3 == 0 and len(self._get_live_keys()) > 1:
-                    self._rotate_key()
-
-                return ModelResponse(
-                    text=text,
-                    input_tokens=input_tokens,
-                    output_tokens=output_tokens,
-                    latency=latency,
-                    tier=self.tier,
-                    model_name=self.model_name,
-                    cost_usd=self.calculate_cost(input_tokens, output_tokens),
-                )
-
-            except Exception as e:
-                self._log_error(e)
-                error_msg = str(e)
-                classification = self._classify_error(error_msg)
-                print(f"    Classified error as: {classification}")
-
-                if classification == "PERMANENT_EXHAUSTION":
-                    try:
-                        self._mark_key_dead(self._current_key, reason=self._extract_reason_summary(error_msg))
-                    except RuntimeError as re:
-                        raise re
-                    except Exception as ex:
-                        print(f"    ❌ {ex}")
-                        break
-                    continue
-                else:
-                    try:
-                        self._rotate_key()
-                    except RuntimeError as re:
-                        raise re
-                    except Exception as ex:
-                        print(f"    ❌ {ex}")
-                        break
-                    backoff = min(5, 2 * (attempt + 1))
-                    print(f"    ⏳ GitHub rate limited (transient), rotated token, waiting {backoff}s...")
-                    time.sleep(backoff)
-                    continue
-
-        latency = time.perf_counter() - start
-        return ModelResponse(
-            text=f"[ERROR] GitHub Models call failed: All keys exhausted or server error",
-            input_tokens=len(prompt.split()) * 2,
-            output_tokens=0,
-            latency=latency,
-            tier=self.tier,
-            model_name=self.model_name,
-            cost_usd=0.0,
-        )
-
-    @property
-    def tier(self) -> int:
-        return 3
-
-    @property
-    def model_name(self) -> str:
-        return f"GitHub/{self._model_id}"
-
-    @property
-    def cost_per_1m_input(self) -> float:
-        return 2.66
-
-    @property
-    def cost_per_1m_output(self) -> float:
-        return 2.66
-

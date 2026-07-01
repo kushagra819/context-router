@@ -1,0 +1,288 @@
+{
+  "price_vectors": {
+    "published": {
+      "1": [
+        0.03,
+        0.06
+      ],
+      "2": [
+        0.59,
+        0.79
+      ],
+      "3": [
+        0.6,
+        0.9
+      ],
+      "4": [
+        2.0,
+        8.0
+      ]
+    },
+    "t4_flat_output": {
+      "1": [
+        0.03,
+        0.06
+      ],
+      "2": [
+        0.59,
+        0.79
+      ],
+      "3": [
+        2.66,
+        2.66
+      ],
+      "4": [
+        2.0,
+        2.0
+      ]
+    },
+    "cheap_frontier": {
+      "1": [
+        0.03,
+        0.06
+      ],
+      "2": [
+        0.59,
+        0.79
+      ],
+      "3": [
+        0.9,
+        0.9
+      ],
+      "4": [
+        1.0,
+        1.0
+      ]
+    },
+    "market_2025": {
+      "1": [
+        0.05,
+        0.1
+      ],
+      "2": [
+        0.59,
+        0.79
+      ],
+      "3": [
+        3.0,
+        3.0
+      ],
+      "4": [
+        2.0,
+        8.0
+      ]
+    },
+    "compressed": {
+      "1": [
+        0.1,
+        0.2
+      ],
+      "2": [
+        0.5,
+        0.6
+      ],
+      "3": [
+        0.8,
+        0.9
+      ],
+      "4": [
+        1.0,
+        1.2
+      ]
+    }
+  },
+  "datasets": [
+    {
+      "dataset": "gsm8k",
+      "n": 200,
+      "metric": "f1",
+      "vectors": {
+        "published": {
+          "tier_cost": {
+            "t1": 0.0315,
+            "t2": 0.2186,
+            "t3": 0.2251,
+            "t4": 1.1824
+          },
+          "oracle_cost": 0.0395,
+          "oracle_savings_pct_vs_t4": 96.66,
+          "t1_savings_pct_vs_t4": 97.34
+        },
+        "t4_flat_output": {
+          "tier_cost": {
+            "t1": 0.0315,
+            "t2": 0.2186,
+            "t3": 0.8236,
+            "t4": 0.5285
+          },
+          "oracle_cost": 0.0485,
+          "oracle_savings_pct_vs_t4": 90.82,
+          "t1_savings_pct_vs_t4": 94.05
+        },
+        "cheap_frontier": {
+          "tier_cost": {
+            "t1": 0.0315,
+            "t2": 0.2186,
+            "t3": 0.2786,
+            "t4": 0.2642
+          },
+          "oracle_cost": 0.0404,
+          "oracle_savings_pct_vs_t4": 84.73,
+          "t1_savings_pct_vs_t4": 88.1
+        },
+        "market_2025": {
+          "tier_cost": {
+            "t1": 0.0524,
+            "t2": 0.2186,
+            "t3": 0.9288,
+            "t4": 1.1824
+          },
+          "oracle_cost": 0.07,
+          "oracle_savings_pct_vs_t4": 94.08,
+          "t1_savings_pct_vs_t4": 95.57
+        },
+        "compressed": {
+          "tier_cost": {
+            "t1": 0.1048,
+            "t2": 0.1754,
+            "t3": 0.2608,
+            "t4": 0.286
+          },
+          "oracle_cost": 0.1086,
+          "oracle_savings_pct_vs_t4": 62.02,
+          "t1_savings_pct_vs_t4": 63.35
+        }
+      },
+      "oracle_savings_min_pct": 62.02,
+      "oracle_savings_max_pct": 96.66
+    },
+    {
+      "dataset": "hotpotqa",
+      "n": 200,
+      "metric": "f1",
+      "vectors": {
+        "published": {
+          "tier_cost": {
+            "t1": 0.0591,
+            "t2": 0.7721,
+            "t3": 0.7401,
+            "t4": 3.7967
+          },
+          "oracle_cost": 0.2738,
+          "oracle_savings_pct_vs_t4": 92.79,
+          "t1_savings_pct_vs_t4": 98.44
+        },
+        "t4_flat_output": {
+          "tier_cost": {
+            "t1": 0.0591,
+            "t2": 0.7721,
+            "t3": 3.1016,
+            "t4": 2.5522
+          },
+          "oracle_cost": 0.2684,
+          "oracle_savings_pct_vs_t4": 89.48,
+          "t1_savings_pct_vs_t4": 97.68
+        },
+        "cheap_frontier": {
+          "tier_cost": {
+            "t1": 0.0591,
+            "t2": 0.7721,
+            "t3": 1.0494,
+            "t4": 1.2761
+          },
+          "oracle_cost": 0.1636,
+          "oracle_savings_pct_vs_t4": 87.18,
+          "t1_savings_pct_vs_t4": 95.37
+        },
+        "market_2025": {
+          "tier_cost": {
+            "t1": 0.0985,
+            "t2": 0.7721,
+            "t3": 3.498,
+            "t4": 3.7967
+          },
+          "oracle_cost": 0.3742,
+          "oracle_savings_pct_vs_t4": 90.14,
+          "t1_savings_pct_vs_t4": 97.4
+        },
+        "compressed": {
+          "tier_cost": {
+            "t1": 0.1971,
+            "t2": 0.6418,
+            "t3": 0.9463,
+            "t4": 1.3176
+          },
+          "oracle_cost": 0.2808,
+          "oracle_savings_pct_vs_t4": 78.68,
+          "t1_savings_pct_vs_t4": 85.04
+        }
+      },
+      "oracle_savings_min_pct": 78.68,
+      "oracle_savings_max_pct": 92.79
+    },
+    {
+      "dataset": "musique",
+      "n": 200,
+      "metric": "f1",
+      "vectors": {
+        "published": {
+          "tier_cost": {
+            "t1": 0.0735,
+            "t2": 1.0647,
+            "t3": 1.0489,
+            "t4": 4.5657
+          },
+          "oracle_cost": 0.5444,
+          "oracle_savings_pct_vs_t4": 88.08,
+          "t1_savings_pct_vs_t4": 98.39
+        },
+        "t4_flat_output": {
+          "tier_cost": {
+            "t1": 0.0735,
+            "t2": 1.0647,
+            "t3": 4.4774,
+            "t4": 3.4793
+          },
+          "oracle_cost": 0.5806,
+          "oracle_savings_pct_vs_t4": 83.31,
+          "t1_savings_pct_vs_t4": 97.89
+        },
+        "cheap_frontier": {
+          "tier_cost": {
+            "t1": 0.0735,
+            "t2": 1.0647,
+            "t3": 1.5149,
+            "t4": 1.7396
+          },
+          "oracle_cost": 0.4315,
+          "oracle_savings_pct_vs_t4": 75.2,
+          "t1_savings_pct_vs_t4": 95.77
+        },
+        "market_2025": {
+          "tier_cost": {
+            "t1": 0.1226,
+            "t2": 1.0647,
+            "t3": 5.0497,
+            "t4": 4.5657
+          },
+          "oracle_cost": 0.6716,
+          "oracle_savings_pct_vs_t4": 85.29,
+          "t1_savings_pct_vs_t4": 97.32
+        },
+        "compressed": {
+          "tier_cost": {
+            "t1": 0.2451,
+            "t2": 0.8906,
+            "t3": 1.3596,
+            "t4": 1.7759
+          },
+          "oracle_cost": 0.503,
+          "oracle_savings_pct_vs_t4": 71.67,
+          "t1_savings_pct_vs_t4": 86.2
+        }
+      },
+      "oracle_savings_min_pct": 71.67,
+      "oracle_savings_max_pct": 88.08
+    }
+  ]
+}

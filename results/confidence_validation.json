@@ -1,0 +1,56 @@
+{
+  "cells": [
+    {
+      "cell": "hotpotqa_baseline_tier1",
+      "n": 200,
+      "accuracy": 0.605,
+      "auc_solver_conf_vs_final_correct": 0.477,
+      "auc_verifier_conf_vs_correct": 0.504,
+      "mean_solver_conf_when_correct": 0.689,
+      "mean_solver_conf_when_incorrect": 0.703,
+      "ece_verifier_conf": 0.292
+    },
+    {
+      "cell": "hotpotqa_baseline_tier4",
+      "n": 200,
+      "accuracy": 0.415,
+      "auc_solver_conf_vs_final_correct": 0.525,
+      "auc_verifier_conf_vs_correct": 0.492,
+      "mean_solver_conf_when_correct": 0.701,
+      "mean_solver_conf_when_incorrect": 0.685,
+      "ece_verifier_conf": 0.482
+    },
+    {
+      "cell": "musique_baseline_tier1",
+      "n": 187,
+      "accuracy": 0.332,
+      "auc_solver_conf_vs_final_correct": 0.589,
+      "auc_verifier_conf_vs_correct": 0.628,
+      "mean_solver_conf_when_correct": 0.639,
+      "mean_solver_conf_when_incorrect": 0.584,
+      "ece_verifier_conf": 0.528
+    },
+    {
+      "cell": "musique_baseline_tier2",
+      "n": 184,
+      "accuracy": 0.467,
+      "auc_solver_conf_vs_final_correct": 0.606,
+      "auc_verifier_conf_vs_correct": 0.561,
+      "mean_solver_conf_when_correct": 0.659,
+      "mean_solver_conf_when_incorrect": 0.582,
+      "ece_verifier_conf": 0.393
+    },
+    {
+      "cell": "musique_baseline_tier4",
+      "n": 200,
+      "accuracy": 0.31,
+      "auc_solver_conf_vs_final_correct": 0.581,
+      "auc_verifier_conf_vs_correct": 0.564,
+      "mean_solver_conf_when_correct": 0.721,
+      "mean_solver_conf_when_incorrect": 0.666,
+      "ece_verifier_conf": 0.565
+    }
+  ],
+  "mean_auc_solver_conf": 0.556,
+  "interpretation": "AUC ~0.5 => the lexical confidence carries little signal about correctness; >0.6 => a usable escalation signal. Report honestly."
+}

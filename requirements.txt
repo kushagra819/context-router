@@ -1,29 +1,30 @@
-# Core LLM frameworks
-langgraph>=0.2.0
-langchain-core>=0.3.0
-langchain-community>=0.3.0
-langchain-groq>=0.2.0
-langchain-google-genai>=2.0.0
+# Context-Aware LLM Routing — dependencies
+# (Removed unused: langchain*, langgraph, sentence-transformers, rouge-score,
+#  seaborn, torch, transformers, tiktoken — none are imported anywhere.)
 
-# Model providers
-ollama>=0.4.0
-groq>=0.11.0
-google-generativeai>=0.8.0
+# --- Provider SDKs (needed only for LIVE runs / real models) ---
+ollama>=0.4.0            # Tier 1 (local Gemma)
+groq>=0.11.0             # Tier 2 (Llama 3.3 70B)
+openai>=1.40.0           # Tiers 3 & 4 (GitHub Models, OpenAI-compatible endpoint)
 
-# Data & evaluation
-datasets>=3.0.0
-rouge-score>=0.1.2
+# --- Data & evaluation ---
+datasets>=3.0.0          # load GSM8K / HotpotQA / MuSiQue
+pandas>=2.2.0            # used by scripts/recompute_metrics_from_dataset.py
 numpy>=1.26.0
-pandas>=2.2.0
 
-# ML for learned router
-scikit-learn>=1.5.0
-sentence-transformers>=3.0.0
+# --- Learned router & figures ---
+scikit-learn>=1.5.0      # train_router.py / LearnedRouter
+matplotlib>=3.9.0        # make_figures.py
 
-# Visualization
-matplotlib>=3.9.0
-seaborn>=0.13.0
-
-# Utilities
+# --- Utilities ---
 tqdm>=4.66.0
-python-dotenv>=1.0.0
+python-dotenv>=1.0.0     # optional; config.py degrades gracefully if absent
+
+# --- Optional alternative providers (src/models/alt_providers/, NOT in the 4-tier matrix) ---
+# google-generativeai>=0.8.0   # GeminiModel
+# (OpenRouterModel / SambaNovaModel use the `openai` SDK above against their endpoints)
+#
+# NOTE: the offline analysis stack (validate_baselines, simulate_routing,
+# aggregate_results, tests/test_offline.py) runs on the standard library alone —
+# only live runs need the provider SDKs, and only figures/learned-router need
+# matplotlib/scikit-learn.

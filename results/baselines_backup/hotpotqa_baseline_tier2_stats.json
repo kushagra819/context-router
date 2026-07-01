@@ -1,0 +1,17 @@
+{
+  "total_problems": 200,
+  "correct": 126,
+  "accuracy": 63.0,
+  "total_cost_usd": 0.767488,
+  "avg_cost_per_problem": 0.003837,
+  "total_tokens": 1241046,
+  "avg_tokens_per_problem": 6205.2,
+  "total_latency_s": 2562.89,
+  "avg_latency_per_problem": 12.81,
+  "avg_f1": 63.0,
+  "note_f1": "F1 calculated from CSV is a conservative lower bound because verifier responses are truncated in the CSV.",
+  "tier": 2,
+  "model": "Llama 3.3 70B",
+  "experiment_id": "hotpotqa_baseline_tier2",
+  "note": "Recomputed from CSV of size 601 rows. Found 200 unique problems."
+}

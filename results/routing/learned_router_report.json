@@ -1,0 +1,152 @@
+{
+  "out": "C:\\Users\\Kumud\\Desktop\\Research\\context-router\\results\\routing\\learned_router.pkl",
+  "label_metric": "f1",
+  "label_distribution": {
+    "t1": 1242,
+    "t2": 234,
+    "t3": 84,
+    "t4": 24
+  },
+  "per_dataset_label_meta": {
+    "gsm8k": {
+      "metric": "f1",
+      "f1_threshold": 0.6,
+      "n_per_tier": {
+        "t1": 200,
+        "t2": 200,
+        "t3": 200,
+        "t4": 200
+      },
+      "n_union": 200,
+      "n_intersection": 200,
+      "n_eligible": 200,
+      "restricted_to_intersection": true,
+      "n_labeled_problems": 198,
+      "n_unsolvable_excluded": 2
+    },
+    "hotpotqa": {
+      "metric": "f1",
+      "f1_threshold": 0.6,
+      "n_per_tier": {
+        "t1": 200,
+        "t2": 200,
+        "t3": 200,
+        "t4": 200
+      },
+      "n_union": 200,
+      "n_intersection": 200,
+      "n_eligible": 200,
+      "restricted_to_intersection": true,
+      "n_labeled_problems": 182,
+      "n_unsolvable_excluded": 18
+    },
+    "musique": {
+      "metric": "f1",
+      "f1_threshold": 0.6,
+      "n_per_tier": {
+        "t1": 200,
+        "t2": 200,
+        "t3": 200,
+        "t4": 200
+      },
+      "n_union": 200,
+      "n_intersection": 200,
+      "n_eligible": 200,
+      "restricted_to_intersection": true,
+      "n_labeled_problems": 148,
+      "n_unsolvable_excluded": 52
+    }
+  },
+  "evaluation": {
+    "datasets": [
+      "gsm8k",
+      "hotpotqa",
+      "musique"
+    ],
+    "metric": "f1",
+    "model": "tree",
+    "max_depth": 5,
+    "n_problems": 528,
+    "label_distribution": {
+      "t1": 414,
+      "t2": 78,
+      "t3": 28,
+      "t4": 8
+    },
+    "grouped_cv": {
+      "n_problems": 528,
+      "n_rows": 1584,
+      "n_folds_total": 25,
+      "n_seeds": 5,
+      "tier_pred_accuracy_mean": 0.5298,
+      "tier_pred_accuracy_std": 0.0638,
+      "routing_accuracy": {
+        "learned": 56.44,
+        "complexity": 10.04,
+        "random": 26.89,
+        "majority_tier": 78.41
+      },
+      "learned_vs_complexity": {
+        "mcnemar": {
+          "n01": 25,
+          "n10": 270,
+          "n_discordant": 295,
+          "p_value": 4.360243022037078e-53,
+          "statistic": 25.0
+        },
+        "paired_bootstrap_greater_p": 0.0,
+        "routing_acc_diff_ci": {
+          "diff": 0.464,
+          "ci_low": 0.4148,
+          "ci_high": 0.5133,
+          "n": 528
+        }
+      },
+      "calibration_ece": 0.2564
+    },
+    "ood_leave_one_dataset_out": {
+      "gsm8k": {
+        "ood_accuracy": 0.8434,
+        "majority_baseline_accuracy": 0.9545,
+        "n_test_problems": 198
+      },
+      "hotpotqa": {
+        "ood_accuracy": 0.5989,
+        "majority_baseline_accuracy": 0.8187,
+        "n_test_problems": 182
+      },
+      "musique": {
+        "ood_accuracy": 0.4054,
+        "majority_baseline_accuracy": 0.5135,
+        "n_test_problems": 148
+      }
+    },
+    "dataset_id_probe": {
+      "dataset_id_cv_accuracy": 0.9242,
+      "majority_class_baseline": 0.375,
+      "interpretation": "accuracy >> baseline => features leak dataset identity"
+    },
+    "role_evidence": {
+      "importances": {
+        "word_count": 0.2364,
+        "entity_count": 0.1626,
+        "estimated_hops": 0.0134,
+        "has_comparison": 0.0,
+        "has_temporal": 0.0,
+        "complexity_score": 0.2548,
+        "context_complexity": 0.3328,
+        "role_analyzer": 0.0,
+        "role_solver": 0.0,
+        "role_verifier": 0.0
+      },
+      "role_importance_sum": 0.0,
+      "achievable_classes": [
+        1,
+        2,
+        3,
+        4
+      ]
+    }
+  },
+  "honesty_note": "Headline accuracy is the GROUPED-by-problem CV mean+/-std, not the in-sample fit. The learned router is a data-driven DIFFICULTY classifier: oracle labels are problem-level, so role-feature importance is ~0 (reported above). Workflow-awareness is the contribution of the rule-based cascade/adaptive routers, which consume role + upstream confidence at inference."
+}

@@ -1,0 +1,15 @@
+{
+  "total_problems": 200,
+  "correct": 194,
+  "accuracy": 97.0,
+  "total_cost_usd": 0.307711,
+  "avg_cost_per_problem": 0.001539,
+  "total_tokens": 418159,
+  "avg_tokens_per_problem": 2090.8,
+  "total_latency_s": 669.43,
+  "avg_latency_per_problem": 3.35,
+  "tier": 3,
+  "model": "Llama 3.1 405B (GitHub)",
+  "experiment_id": "gsm8k_baseline_tier3",
+  "note": "Recomputed from CSV of size 600 rows. Found 200 unique problems."
+}

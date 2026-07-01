@@ -15,6 +15,11 @@ class ModelResponse:
     tier: int
     model_name: str
     cost_usd: float          # calculated from published pricing
+    mean_logprob: float | None = None   # mean per-token logprob of the response
+                                        # (<=0); None if the provider didn't return
+                                        # logprobs. Enables a CALIBRATED confidence
+                                        # signal (exp(mean_logprob)) for the cascade,
+                                        # superseding the lexical keyword heuristic.
 
     @property
     def total_tokens(self) -> int:
@@ -218,8 +223,7 @@ class BaseMultiKeyModel(BaseModel):
         permanent_keywords = [
             "byday", "daily", "quota", "credit", "fund", "balance", 
             "subscription", "billing", "account_limit", "free model",
-            "abusepenalty", "abuse_penalty", "rate limit byday",
-            "scraping"
+            "abusepenalty", "abuse_penalty", "rate limit byday"
         ]
         for kw in permanent_keywords:
             if kw in error_lower:

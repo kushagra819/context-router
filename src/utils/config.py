@@ -2,9 +2,14 @@
 
 import os
 from pathlib import Path
-from dotenv import load_dotenv
 
-# Load .env file
+try:
+    from dotenv import load_dotenv
+except ImportError:  # python-dotenv is optional; env vars may be set by the shell
+    def load_dotenv(*args, **kwargs):  # type: ignore
+        return False
+
+# Load .env file (if python-dotenv is installed and a .env exists)
 load_dotenv()
 
 # ──────────────────────────────────────────
@@ -37,6 +42,7 @@ GOOGLE_API_KEYS = _load_keys("GOOGLE_API_KEY")
 GITHUB_TOKENS = _load_keys("GITHUB_TOKEN")
 OPENROUTER_API_KEYS = _load_keys("OPENROUTER_API_KEY")
 SAMBANOVA_API_KEYS = _load_keys("SAMBANOVA_API_KEY")
+OPENAI_API_KEYS = _load_keys("OPENAI_API_KEY")   # Tier 4 direct frontier (preferred over GitHub)
 
 # ──────────────────────────────────────────
 # MODEL CONFIGURATIONS
@@ -60,19 +66,19 @@ MODEL_CONFIG = {
         "max_tokens": 2048,
         "temperature": 0.1,
     },
-    3: {  # Tier 3: Cloud frontier model
-        "name": "Llama 3.1 405B (GitHub)",
-        "model_id": "Meta-Llama-3.1-405B-Instruct",
-        "provider": "github",
-        "cost_per_1m_input": 2.66,    # Published pricing for Llama 3.1 405B
-        "cost_per_1m_output": 2.66,
+    3: {  # Tier 3: Strong open model (Llama-4-Maverick sunset -> GPT-OSS 120B)
+        "name": "GPT-OSS 120B",
+        "model_id": "openai/gpt-oss-120b",  # Groq ID; OpenRouter ID: openai/gpt-oss-120b:free
+        "provider": "groq+openrouter (failover)",
+        "cost_per_1m_input": 0.60,    # Representative hosted price (hypothetical; R10), kept > Tier 2
+        "cost_per_1m_output": 0.90,
         "max_tokens": 2048,
         "temperature": 0.1,
     },
-    4: {  # Tier 4: Proprietary frontier (oracle/ceiling)
-        "name": "GPT-4.1 (GitHub)",
-        "model_id": "openai/gpt-4.1",
-        "provider": "github",
+    4: {  # Tier 4: Proprietary frontier (oracle/ceiling); own key pool (decoupled from T3, R1)
+        "name": "GPT-4.1",
+        "model_id": "gpt-4.1",        # direct OpenAI; GitHub fallback id: openai/gpt-4.1
+        "provider": "openai (direct) | github (fallback)",
         "cost_per_1m_input": 2.00,     # Official OpenAI GPT-4.1 pricing
         "cost_per_1m_output": 8.00,
         "max_tokens": 2048,
@@ -90,8 +96,9 @@ DEFAULT_HUMANEVAL_COUNT = 164  # Full set
 # Rate limiting (requests per minute)
 RATE_LIMITS = {
     "ollama": 999,     # No limit (local)
-    "groq": 28,        # 30 RPM with buffer
-    "github": 15,      # Conservative for GitHub Models free tier
-    "openrouter": 10,  # Conservative for OpenRouter free tier
-    "sambanova": 8,    # Conservative for SambaNova free tier (10 RPM limit)
+    "groq": 28,        # 30 RPM with buffer (Tier 2 Llama-70B AND Tier 3 GPT-OSS 120B: per-model limits)
+    "openrouter": 10,  # Conservative for OpenRouter free tier (Tier 3 GPT-OSS 120B fallback)
+    "openai": 60,      # Tier 4 direct OpenAI (paid; ample headroom)
+    "github": 15,      # GitHub Models free tier (Tier 4 GPT-4.1 fallback only)
+    "sambanova": 8,    # Optional alt Tier-3 backend (DeepSeek-V3.1)
 }

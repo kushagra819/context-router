@@ -42,7 +42,10 @@ Analyzer's Fact Selection & Reasoning Path:
 Resolve each reasoning hop step-by-step. Propose a final concise answer based on the facts."""
 
 
-VERIFIER_SYSTEM = "You are a factual verifier. Check reasoning carefully against the context. Always end with exactly: Final Answer: [concise answer]"
+VERIFIER_SYSTEM = ("You are a factual verifier. Check reasoning carefully against the context. "
+                   "You MUST end with a line exactly 'Final Answer: <span>' where <span> is ONLY "
+                   "the short answer (a name, entity, date, number, or yes/no) with NO Markdown, "
+                   "NO asterisks, and NO explanatory sentence.")
 
 VERIFIER_USER = """Verify this multi-hop reasoning solution for factual accuracy using the original context.
 
@@ -59,8 +62,8 @@ Ensure that:
 2. The final answer is concise and directly answers the question (usually a name, location, date, or short entity).
 
 If correct, confirm it. If there is a factual error, correct the reasoning and fix the answer.
-You MUST end your response with exactly this format:
-Final Answer: [your concise answer]"""
+Your response MUST end with a single line in EXACTLY this format (no Markdown, no bold, no asterisks):
+Final Answer: <only the short answer span — a name, entity, date, number, or yes/no; nothing else>"""
 
 
 # ──────────────────────────────────────────
