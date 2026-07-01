@@ -6,7 +6,7 @@
 |:----:|-------|:----------:|----------|-----|:---------------------:|:---------------:|
 | 1 | **Gemma 4 E4B** | ~4B | Ollama (local) | REST localhost | In: $0.03, Out: $0.06 | ~98s/problem (CPU) |
 | 2 | **Llama 3.3 70B** | 70B | Groq | Cloud API | In: $0.59, Out: $0.79 | ~3s/problem |
-| 3 | **Llama 3.1 405B** | 405B | GitHub Models | OpenAI-compatible | In: $2.66, Out: $2.66 | ~54s/problem |
+| 3 | **GPT-OSS 120B** | 120B | Groq (primary) + OpenRouter (failover) | OpenAI-compatible | In: $0.60, Out: $0.90 | ~5s/problem |
 | 4 | **GPT-4.1** | ~1.8T (est.) | GitHub Models | OpenAI-compatible | In: $2.00, Out: $8.00 | ~12s/problem |
 
 > **Note:** All models are accessed for free via academic/free-tier APIs. Pricing above is the published commercial rate, used for hypothetical cost analysis.
@@ -27,19 +27,19 @@
 - **Key rotation:** Up to 15 API keys
 - **Notes:** Fastest cloud provider. Best cost-performance ratio.
 
-### Tier 3: GitHub Models
-- **File:** `src/models/github_model.py`
-- **Model ID:** `Meta-Llama-3.1-405B-Instruct`
-- **Rate limit:** ~15 RPM (conservative), 8.0s enforced delay
-- **Key rotation:** Up to 15 GitHub PATs
-- **Notes:** Shares GitHub token pool with Tier 4. 8s delay = ~27 min overhead per 200 problems.
+### Tier 3: Groq (primary) + OpenRouter (failover)
+- **File:** `src/models/tier3_model.py`
+- **Model ID:** `openai/gpt-oss-120b`
+- **Rate limit:** ~25 RPM per key (Groq), ~10 RPM per key (OpenRouter)
+- **Key rotation:** Up to 15 Groq keys + 15 OpenRouter keys (separate pools)
+- **Notes:** Replaced Llama-3.1-405B (sunset) → Llama-4-Maverick (sunset) → GPT-OSS 120B. Uses separate key pools from Tier 4, resolving the shared-pool confound.
 
-### Tier 4: GitHub Models
+### Tier 4: OpenAI (preferred) + GitHub Models (fallback)
 - **File:** `src/models/gpt41_model.py`
 - **Model ID:** `openai/gpt-4.1`
-- **Rate limit:** ~15 RPM, 8.0s enforced delay
-- **Key rotation:** Up to 15 GitHub PATs (same pool as Tier 3)
-- **Notes:** Frontier model. Shares token pool with Tier 3 — cannot run both simultaneously.
+- **Rate limit:** 1000 RPM / 1M TPM per GitHub key
+- **Key rotation:** Up to 15 GitHub PATs (separate pool from Tier 3)
+- **Notes:** Frontier model. Tier 3 and Tier 4 now use separate key pools.
 
 ## 3. Inactive Models (Kept for Future Use)
 

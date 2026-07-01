@@ -10,7 +10,7 @@ ordinary query complexity and a cost budget.
 > **Status (2026-06-25, Stage 6):** a full engineering pass fixed the reviewer-blocking issues
 > offline (Tier-4 EM anomaly corrected, F1-aware oracle labels, leakage-free learned-router
 > evaluation, real statistics, cost-sensitivity, confidence validation) and migrated Tier 3 off
-> the sunset Llama-3.1-405B to **Llama-4-Maverick**. Only computation remains.
+> the sunset Llama-3.1-405B to **GPT-OSS 120B**. Only computation remains.
 > **Start here: [docs/STAGE6_ENGINEERING_REPORT.md](docs/STAGE6_ENGINEERING_REPORT.md)**
 > (exact home-machine commands in §8), then [docs/00_PROJECT_STATE.md](docs/00_PROJECT_STATE.md).
 
@@ -107,13 +107,14 @@ context-router/
 
 | Tier | Model | Provider | $/1M in | $/1M out |
 |:----:|-------|----------|:-------:|:--------:|
-| 1 | Gemma 3 4B | Ollama (local) | 0.03 | 0.06 |
+| 1 | Gemma 4 E4B | Ollama (local) | 0.03 | 0.06 |
 | 2 | Llama 3.3 70B | Groq | 0.59 | 0.79 |
-| 3 | Llama 4 Maverick | Groq (primary) + OpenRouter (failover) | 0.60 | 0.90 |
+| 3 | GPT-OSS 120B | Groq (primary) + OpenRouter (failover) | 0.60 | 0.90 |
 | 4 | GPT-4.1 | OpenAI direct (preferred) + GitHub (fallback) | 2.00 | 8.00 |
 
-Tier 3 was migrated off the sunset Llama-3.1-405B; Tiers 3 & 4 use **separate key pools**
-(resolves the shared-pool confound R1). Prices are representative/hypothetical (R10).
+Tier 3 was migrated off the sunset Llama-3.1-405B → Llama-4-Maverick → **GPT-OSS 120B**;
+Tiers 3 & 4 use **separate key pools** (resolves the shared-pool confound R1).
+Prices are representative/hypothetical (R10).
 
 Details + alternative providers: [docs/03_MODEL_MATRIX.md](docs/03_MODEL_MATRIX.md).
 

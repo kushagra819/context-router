@@ -2,7 +2,7 @@
 
 > **Last Updated:** 2026-06-25 (Stage 6 engineering pass)
 > **Current Stage:** Stage 6 — Final Engineering Version. The reviewer-blocking issues are fixed
-> offline; Tier 3 migrated off the sunset Llama-3.1-405B to Llama-4-Maverick. **Only computation
+> offline; Tier 3 migrated off the sunset Llama-3.1-405B → Llama-4-Maverick → GPT-OSS 120B. **Only computation
 > remains.** Read **[STAGE6_ENGINEERING_REPORT.md](STAGE6_ENGINEERING_REPORT.md) first** — it is
 > the authoritative record of what changed, the corrected data state (8/12 cells LOCKED), the
 > remaining compute-only tasks, and the exact home-machine commands.
